@@ -11,6 +11,7 @@ import { registerApplicationCommands } from "./commands/register.js";
 import { startDeadlineSweep } from "./services/deadline.service.js";
 import { startGeminiSubmissionGradingWorker } from "./workers/submission-grading.worker.js";
 import { connectDatabase, disconnectDatabase } from "./db/prisma.js";
+import { withRetry } from "./utils/retry.js";
 
 const client = new Client({
   intents: [
@@ -96,7 +97,13 @@ process.once("uncaughtException", (error) => {
 });
 
 try {
-  await connectDatabase();
+  await withRetry(() => connectDatabase(), {
+    maxAttempts: 3,
+    delayMs: 1_000,
+    onRetry: (error, attempt) => {
+      logger.warn({ err: error, attempt, maxAttempts: 3 }, "Database connection will be retried");
+    },
+  });
   logger.info("Database connection verified");
   await client.login(config.DISCORD_TOKEN);
 } catch (error) {
