@@ -1,6 +1,10 @@
 import { Events, type Client, type Interaction } from "discord.js";
 import { parseCustomId } from "../commands/ids.js";
 import { createSubmissionChannel } from "../services/submission.service.js";
+import {
+  approveChallengeFromInteraction,
+  rejectChallengeFromInteraction,
+} from "../services/challenge-approval.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
@@ -13,6 +17,28 @@ export function registerInteractionHandler(client: Client): void {
       if (parsed.action === "challenge:submit") {
         await interaction.deferReply({ ephemeral: true });
         await createSubmissionChannel(interaction, parsed.resourceId);
+        return;
+      }
+
+      if (parsed.action === "challenge:approve") {
+        await interaction.deferReply();
+        await approveChallengeFromInteraction(interaction, parsed.resourceId);
+        await interaction.message.edit({
+          content: "Challenge가 승인되어 공개 채널에 게시되었습니다.",
+          components: [],
+        });
+        await interaction.editReply("Challenge 승인 및 공개 게시가 완료되었습니다.");
+        return;
+      }
+
+      if (parsed.action === "challenge:reject") {
+        await interaction.deferReply();
+        await rejectChallengeFromInteraction(interaction, parsed.resourceId);
+        await interaction.message.edit({
+          content: "Challenge가 거절되었습니다.",
+          components: [],
+        });
+        await interaction.editReply("Challenge 거절 처리가 완료되었습니다.");
         return;
       }
 

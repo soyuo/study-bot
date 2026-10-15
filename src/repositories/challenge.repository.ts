@@ -129,3 +129,133 @@ export async function setChallengePreviewMessage(input: {
     return challenge;
   });
 }
+
+export async function findChallengeForApproval(challengeId: string) {
+  return prisma.challenge.findUnique({
+    where: { id: challengeId },
+    include: {
+      guildConfig: true,
+      rubrics: { include: { criteria: true } },
+    },
+  });
+}
+
+export async function approveChallenge(input: {
+  challengeId: string;
+  approverId: string;
+  activatedAt?: Date;
+}) {
+  const activatedAt = input.activatedAt ?? new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.challenge.updateMany({
+      where: { id: input.challengeId, status: "DRAFT", deletedAt: null },
+      data: {
+        status: "ACTIVE",
+        approvedById: input.approverId,
+        approvedAt: activatedAt,
+        activatedAt,
+      },
+    });
+
+    if (result.count !== 1) {
+      throw new Error("Challenge is no longer awaiting approval");
+    }
+
+    await tx.rubricVersion.updateMany({
+      where: { challengeId: input.challengeId },
+      data: { isFrozen: true },
+    });
+
+    const challenge = await tx.challenge.findUniqueOrThrow({
+      where: { id: input.challengeId },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: input.approverId,
+        action: "CHALLENGE_APPROVED",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: { activatedAt: activatedAt.toISOString() },
+      },
+    });
+
+    return challenge;
+  });
+}
+
+export async function rejectChallenge(input: {
+  challengeId: string;
+  rejecterId: string;
+  reason?: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.challenge.updateMany({
+      where: { id: input.challengeId, status: "DRAFT", deletedAt: null },
+      data: {
+        status: "REJECTED",
+        rejectedById: input.rejecterId,
+        rejectedAt: new Date(),
+        rejectionReason: input.reason ?? null,
+      },
+    });
+
+    if (result.count !== 1) {
+      throw new Error("Challenge is no longer awaiting approval");
+    }
+
+    const challenge = await tx.challenge.findUniqueOrThrow({
+      where: { id: input.challengeId },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: input.rejecterId,
+        action: "CHALLENGE_REJECTED",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: { reason: input.reason ?? null },
+      },
+    });
+
+    return challenge;
+  });
+}
+
+export async function setChallengePublicMessage(input: {
+  challengeId: string;
+  publicChannelId: string;
+  publicMessageId: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const challenge = await tx.challenge.update({
+      where: { id: input.challengeId, status: "ACTIVE" },
+      data: {
+        publicChannelId: input.publicChannelId,
+        publicMessageId: input.publicMessageId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: challenge.approvedById,
+        action: "CHALLENGE_PUBLISHED",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: {
+          publicChannelId: input.publicChannelId,
+          publicMessageId: input.publicMessageId,
+        },
+      },
+    });
+
+    return challenge;
+  });
+}
