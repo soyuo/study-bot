@@ -52,6 +52,7 @@ if (!testDatabaseUrl) {
       await prisma.submissionSnapshot.deleteMany({
         where: { submissionId: { in: submissionIds } },
       });
+      await prisma.submissionArtifact.deleteMany({ where: { submissionId: { in: submissionIds } } });
       await prisma.submission.deleteMany({ where: { id: { in: submissionIds } } });
       for (const challengeId of challengeIds) {
         const rubrics = await prisma.rubricVersion.findMany({

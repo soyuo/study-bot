@@ -46,6 +46,7 @@ if (!testDatabaseUrl) {
       await prisma.grade.deleteMany({ where: { id: { in: gradeIds } } });
       await prisma.job.deleteMany({ where: { guildConfigId: guildConfig.id } });
       await prisma.submissionSnapshot.deleteMany({ where: { submissionId: { in: submissionIds } } });
+      await prisma.submissionArtifact.deleteMany({ where: { submissionId: { in: submissionIds } } });
       await prisma.submission.deleteMany({ where: { id: { in: submissionIds } } });
       for (const challengeId of challengeIds) {
         const rubrics = await prisma.rubricVersion.findMany({
@@ -156,7 +157,7 @@ if (!testDatabaseUrl) {
     assert.equal(storedSubmission?.status, "GRADING");
     assert.equal(job?.type, "SUBMISSION_REGRADING");
     assert.equal(job?.status, "PENDING");
-    assert.equal(job?.payload && JSON.stringify(job.payload), JSON.stringify({ snapshotId: snapshot.id, actorId }));
+    assert.deepEqual(job?.payload, { snapshotId: snapshot.id, actorId });
     assert.equal(grades.length, 1);
     assert.equal(grades[0]?.id, previousGrade.id);
     assert.equal(log?.actorId, actorId);

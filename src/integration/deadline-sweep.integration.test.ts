@@ -33,6 +33,7 @@ if (!testDatabaseUrl) {
       });
       const challengeIds = challenges.map((challenge) => challenge.id);
       await prisma.auditLog.deleteMany({ where: { guildConfigId: guildConfig.id } });
+      await prisma.submissionArtifact.deleteMany({ where: { submission: { challengeId: { in: challengeIds } } } });
       await prisma.submission.deleteMany({ where: { challengeId: { in: challengeIds } } });
       for (const challengeId of challengeIds) {
         const rubrics = await prisma.rubricVersion.findMany({
