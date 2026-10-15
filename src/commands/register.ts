@@ -6,6 +6,7 @@ import {
   type Client,
 } from "discord.js";
 import { config } from "../config.js";
+import { logger } from "../logger.js";
 
 export async function registerApplicationCommands(client: Client) {
   const command = new SlashCommandBuilder()
@@ -81,8 +82,26 @@ export async function registerApplicationCommands(client: Client) {
     .setName("health")
     .setDescription("봇과 데이터베이스의 운영 상태를 확인합니다.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
-  await rest.put(route, {
-    body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON(), challengeDelete.toJSON(), audit.toJSON(), submissionDelete.toJSON(), health.toJSON()],
-  });
+  const body = [
+    command.toJSON(),
+    archiveRetry.toJSON(),
+    guildConfig.toJSON(),
+    submission.toJSON(),
+    challengeDelete.toJSON(),
+    audit.toJSON(),
+    submissionDelete.toJSON(),
+    health.toJSON(),
+  ];
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await rest.put(route, { body });
+      break;
+    } catch (error) {
+      if (attempt === maxAttempts) throw error;
+      logger.warn({ err: error, attempt, maxAttempts }, "Application command registration will be retried");
+      await new Promise((resolve) => setTimeout(resolve, 1_000 * 2 ** (attempt - 1)));
+    }
+  }
   return client.user?.id;
 }
