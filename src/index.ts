@@ -64,6 +64,18 @@ client.on("debug", (message) => logger.debug({ message }, "Discord client debug"
 client.on("shardError", (error, shardId) => {
   logger.error({ err: error, shardId }, "Discord shard error");
 });
+client.on("rateLimit", (info) => {
+  logger.warn(
+    {
+      route: info.route,
+      method: info.method,
+      timeoutMs: info.timeout,
+      limit: info.limit,
+      global: info.global,
+    },
+    "Discord API rate limit reached",
+  );
+});
 client.on("invalidated", () => {
   logger.fatal("Discord session was invalidated");
   void shutdown("discordInvalidated", 1);
