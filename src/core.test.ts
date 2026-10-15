@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { customIds, parseCustomId } from "./commands/ids.js";
-import { formatDiscordTimestamp, isDeadlinePassed, resolveDeadline } from "./utils/deadline.js";
+import { formatDiscordTimestamp, formatSystemDateTime, isDeadlinePassed, resolveDeadline } from "./utils/deadline.js";
 import { validateGradingResponse } from "./validators/grading.schema.js";
 import { isSupportedSourcePath, parseGitHubUrl } from "./services/github.service.js";
 
@@ -16,6 +16,10 @@ test("deadline is passed at the exact boundary", () => {
   assert.equal(isDeadlinePassed(deadline, deadline), true);
   assert.equal(isDeadlinePassed(deadline, new Date("2026-01-03T23:59:59.999Z")), false);
   assert.equal(formatDiscordTimestamp(null), "제한 없음");
+});
+
+test("system date formatter renders deadlines in Korea Standard Time", () => {
+  assert.equal(formatSystemDateTime(new Date("2026-01-01T00:00:00.000Z")), "26. 1. 1. 오전 9:00");
 });
 
 test("custom IDs round-trip through the parser", () => {
