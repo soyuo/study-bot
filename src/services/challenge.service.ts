@@ -1,4 +1,9 @@
-import { EmbedBuilder } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+} from "discord.js";
 import type { Challenge } from "../types/challenge.js";
 import { customIds } from "../commands/ids.js";
 import { createDraftChallenge } from "../repositories/challenge.repository.js";
@@ -8,6 +13,21 @@ import {
   type ChallengeRegistrationInput,
   type ParsedChallenge,
 } from "../validators/challenge.schema.js";
+import { formatDiscordTimestamp, isDeadlinePassed } from "../utils/deadline.js";
+
+export interface ChallengeEmbedData {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: Challenge["difficulty"];
+  requirements: string[];
+  optionalRequirements?: string[];
+  deliverables: string[];
+  allowedLanguages?: string[];
+  constraints?: string[];
+  deadline: Date | null;
+  maxScore: number;
+}
 
 export async function createChallengeDraft(input: {
   registration: ChallengeRegistrationInput;
@@ -18,33 +38,82 @@ export async function createChallengeDraft(input: {
   return createDraftChallenge({ registration, parsed });
 }
 
-export function buildChallengeEmbed(challenge: Challenge): EmbedBuilder {
+function listField(items: string[] | undefined): string {
+  return items && items.length > 0 ? items.map((item) => `• ${item}`).join("\n") : "없음";
+}
+
+function buildBaseChallengeEmbed(challenge: ChallengeEmbedData): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle(`Challenge: ${challenge.title}`)
     .setDescription(challenge.description)
     .addFields(
       { name: "난이도", value: challenge.difficulty, inline: true },
       { name: "최대 점수", value: `${challenge.maxScore}점`, inline: true },
-      {
-        name: "요구사항",
-        value: challenge.requirements.length > 0 ? challenge.requirements.map((item) => `• ${item}`).join("\n") : "없음",
-      },
-      {
-        name: "제출물",
-        value: challenge.deliverables.length > 0 ? challenge.deliverables.map((item) => `• ${item}`).join("\n") : "없음",
-      },
+      { name: "요구사항", value: listField(challenge.requirements) },
+      { name: "제출물", value: listField(challenge.deliverables) },
+      { name: "마감", value: formatDiscordTimestamp(challenge.deadline), inline: true },
     )
     .setColor(0x5865f2);
 
-  if (challenge.deadline) embed.addFields({ name: "마감", value: `<t:${Math.floor(challenge.deadline.getTime() / 1000)}:F>` });
+  if (challenge.optionalRequirements?.length) {
+    embed.addFields({ name: "선택 요구사항", value: listField(challenge.optionalRequirements) });
+  }
+  if (challenge.allowedLanguages?.length) {
+    embed.addFields({ name: "사용 가능 언어", value: listField(challenge.allowedLanguages) });
+  }
+  if (challenge.constraints?.length) {
+    embed.addFields({ name: "제약사항", value: listField(challenge.constraints) });
+  }
   return embed;
 }
 
-export function buildSubmitButton(challengeId: string) {
-  return {
-    type: 2,
-    style: 1,
-    label: "과제 제출",
-    custom_id: customIds.submit(challengeId),
-  } as const;
+export function buildChallengePreviewEmbed(challenge: ChallengeEmbedData): EmbedBuilder {
+  return buildBaseChallengeEmbed(challenge)
+    .setTitle(`[승인 대기] Challenge: ${challenge.title}`)
+    .setFooter({ text: `Challenge ID: ${challenge.id} · Rubric은 승인 후 고정됩니다.` });
+}
+
+export function buildChallengePublicEmbed(challenge: ChallengeEmbedData): EmbedBuilder {
+  return buildBaseChallengeEmbed(challenge)
+    .setTitle(`Challenge: ${challenge.title}`)
+    .setFooter({ text: `Challenge ID: ${challenge.id}` });
+}
+
+export function buildChallengePreviewComponents(challengeId: string) {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(customIds.approve(challengeId))
+        .setLabel("승인")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(customIds.reject(challengeId))
+        .setLabel("거절")
+        .setStyle(ButtonStyle.Danger),
+    ),
+  ];
+}
+
+export function buildChallengePublicComponents(challenge: ChallengeEmbedData, now = new Date()) {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(customIds.submit(challenge.id))
+        .setLabel("과제 제출")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(isDeadlinePassed(challenge.deadline, now)),
+    ),
+  ];
+}
+
+export function buildSubmitButton(challengeId: string, disabled = false) {
+  return new ButtonBuilder()
+    .setCustomId(customIds.submit(challengeId))
+    .setLabel("과제 제출")
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(disabled);
+}
+
+export function buildChallengeEmbed(challenge: Challenge): EmbedBuilder {
+  return buildChallengePublicEmbed(challenge);
 }

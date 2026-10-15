@@ -1,6 +1,7 @@
 import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../db/prisma.js";
 import type { ParsedChallenge } from "../validators/challenge.schema.js";
+import { resolveDeadline } from "../utils/deadline.js";
 
 export interface CreateDraftChallengeInput {
   registration: {
@@ -22,14 +23,6 @@ export interface CreateDraftChallengeInput {
 
 function toJson(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
-}
-
-function resolveDeadline(policy: ParsedChallenge["deadlinePolicy"], baseTime: Date): Date | null {
-  if (policy.type === "NONE") return null;
-  if (policy.type === "RELATIVE") {
-    return new Date(baseTime.getTime() + policy.durationHours * 60 * 60 * 1_000);
-  }
-  return new Date(policy.isoDateTime);
 }
 
 export async function createDraftChallenge(input: CreateDraftChallengeInput) {

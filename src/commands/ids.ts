@@ -1,5 +1,7 @@
 export const customIds = {
   submit: (challengeId: string) => `challenge:submit:${challengeId}`,
+  approve: (challengeId: string) => `challenge:approve:${challengeId}`,
+  reject: (challengeId: string) => `challenge:reject:${challengeId}`,
   complete: (submissionId: string) => `submission:complete:${submissionId}`,
 };
 
