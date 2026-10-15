@@ -2,5 +2,6 @@
 node_modules/
 dist/
 src/generated/
+data/artifacts/
 .env
 npm-debug.log*

@@ -13,6 +13,7 @@ const envSchema = z.object({
   ADMIN_LOG_CHANNEL_ID: optionalId,
   GEMINI_API_KEY: optionalId,
   GEMINI_MODEL: z.string().trim().min(1).default("gemini-2.5-flash"),
+  ARTIFACT_STORAGE_DIR: z.string().trim().min(1).default("data/artifacts"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 });
 

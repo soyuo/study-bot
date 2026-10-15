@@ -11,6 +11,7 @@ import {
   queueSubmissionGrading,
 } from "../repositories/challenge.repository.js";
 import { resolveGitHubSnapshot } from "./github.service.js";
+import { persistDiscordAttachment } from "./artifact-storage.service.js";
 
 const urlPattern = /https?:\/\/[^\s<>]+/g;
 const githubPattern = /^https?:\/\/github\.com\//i;
@@ -24,6 +25,7 @@ type SnapshotArtifact = {
   mimeType?: string;
   sizeBytes?: number;
   commitSha?: string;
+  storageKey?: string;
 };
 
 function collectMessageArtifacts(message: Message, maxAttachmentBytes: number): SnapshotArtifact[] {
@@ -117,6 +119,15 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
 
   const enrichedArtifacts = await Promise.all(
     collected.artifacts.map(async (artifact) => {
+      if (artifact.type === "FILE") {
+        const stored = await persistDiscordAttachment({
+          submissionId,
+          source: artifact.source,
+          filename: artifact.filename,
+          maxBytes: submission.challenge.guildConfig.maxAttachmentBytes,
+        });
+        return { ...artifact, storageKey: stored.storageKey, sizeBytes: stored.sizeBytes };
+      }
       if (artifact.type !== "GITHUB") return artifact;
       const resolved = await resolveGitHubSnapshot(artifact.source);
       return { ...artifact, content: resolved.content, commitSha: resolved.commitSha };
