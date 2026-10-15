@@ -148,6 +148,62 @@ export async function approveChallenge(input: {
   const activatedAt = input.activatedAt ?? new Date();
 
   return prisma.$transaction(async (tx) => {
+    const draft = await tx.challenge.findUnique({
+      where: { id: input.challengeId },
+      select: { guildConfigId: true },
+    });
+    if (!draft) throw new Error("Challenge not found");
+
+    const previousChallenges = await tx.challenge.findMany({
+      where: {
+        guildConfigId: draft.guildConfigId,
+        status: "ACTIVE",
+        id: { not: input.challengeId },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    for (const previous of previousChallenges) {
+      await tx.challenge.update({
+        where: { id: previous.id },
+        data: { status: "CLOSED", closedAt: activatedAt },
+      });
+
+      const submissions = await tx.submission.findMany({
+        where: { challengeId: previous.id, deletedAt: null, channelId: { not: null } },
+        select: { id: true, userId: true, channelId: true, status: true },
+      });
+      for (const submission of submissions) {
+        if (submission.status === "OPEN") {
+          await tx.submission.update({
+            where: { id: submission.id },
+            data: { status: "LOCKED", lockedAt: activatedAt },
+          });
+        }
+        await tx.archiveRecord.create({
+          data: {
+            challengeId: previous.id,
+            submissionId: submission.id,
+            channelId: submission.channelId!,
+            status: "PENDING",
+            startedAt: activatedAt,
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          guildConfigId: draft.guildConfigId,
+          actorId: input.approverId,
+          action: "CHALLENGE_CLOSED_FOR_NEW_CHALLENGE",
+          entityType: "Challenge",
+          entityId: previous.id,
+          challengeId: previous.id,
+          metadata: { replacementChallengeId: input.challengeId },
+        },
+      });
+    }
+
     const result = await tx.challenge.updateMany({
       where: { id: input.challengeId, status: "DRAFT", deletedAt: null },
       data: {
@@ -184,6 +240,34 @@ export async function approveChallenge(input: {
     });
 
     return challenge;
+  });
+}
+
+export async function findPendingArchiveRecords(input: {
+  guildConfigId: string;
+  excludeChallengeId: string;
+}) {
+  return prisma.archiveRecord.findMany({
+    where: {
+      status: "PENDING",
+      challenge: { guildConfigId: input.guildConfigId, id: { not: input.excludeChallengeId } },
+    },
+    include: { submission: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function completeArchiveRecord(recordId: string) {
+  return prisma.archiveRecord.updateMany({
+    where: { id: recordId, status: "PENDING" },
+    data: { status: "COMPLETED", completedAt: new Date() },
+  });
+}
+
+export async function failArchiveRecord(recordId: string, errorMessage: string) {
+  return prisma.archiveRecord.updateMany({
+    where: { id: recordId, status: "PENDING" },
+    data: { status: "FAILED", errorMessage: errorMessage.slice(0, 2_000) },
   });
 }
 

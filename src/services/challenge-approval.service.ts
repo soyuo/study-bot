@@ -7,6 +7,9 @@ import { config } from "../config.js";
 import {
   approveChallenge,
   findChallengeForApproval,
+  findPendingArchiveRecords,
+  completeArchiveRecord,
+  failArchiveRecord,
   rejectChallenge,
   setChallengePublicMessage,
 } from "../repositories/challenge.repository.js";
@@ -59,6 +62,32 @@ export async function approveChallengeFromInteraction(interaction: ButtonInterac
     challengeId,
     approverId: interaction.user.id,
   });
+
+  const pendingArchives = await findPendingArchiveRecords({
+    guildConfigId: challenge.guildConfigId,
+    excludeChallengeId: challengeId,
+  });
+  for (const archive of pendingArchives) {
+    try {
+      if (archive.submission?.channelId) {
+        const submissionChannel = await guild.channels.fetch(archive.submission.channelId);
+        if (submissionChannel?.isTextBased() && "permissionOverwrites" in submissionChannel) {
+          await submissionChannel.permissionOverwrites.edit(archive.submission.userId, {
+            ViewChannel: false,
+            SendMessages: false,
+            AttachFiles: false,
+            AddReactions: false,
+            SendMessagesInThreads: false,
+            CreatePublicThreads: false,
+            CreatePrivateThreads: false,
+          });
+        }
+      }
+      await completeArchiveRecord(archive.id);
+    } catch (error) {
+      await failArchiveRecord(archive.id, error instanceof Error ? error.message : "Archive failed");
+    }
+  }
   const embedData = toEmbedData({ ...challenge, ...activated });
   const publicMessage = await channel.send({
     embeds: [buildChallengePublicEmbed(embedData)],
