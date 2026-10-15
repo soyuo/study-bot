@@ -8,6 +8,7 @@ import { logger } from "./logger.js";
 import { registerInteractionHandler } from "./handlers/interaction-create.js";
 import { registerMessageHandler } from "./handlers/message-create.js";
 import { registerApplicationCommands } from "./commands/register.js";
+import { startDeadlineSweep } from "./services/deadline.service.js";
 
 const client = new Client({
   intents: [
@@ -23,6 +24,7 @@ client.once("ready", (readyClient) => {
   registerApplicationCommands(readyClient).catch((error) => {
     logger.error({ err: error }, "Application command registration failed");
   });
+  startDeadlineSweep(readyClient);
 });
 
 client.on("error", (error) => logger.error({ err: error }, "Discord client error"));

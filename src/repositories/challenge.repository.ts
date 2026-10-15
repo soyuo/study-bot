@@ -294,6 +294,48 @@ export async function updateGuildConfig(input: {
   });
 }
 
+export async function closeExpiredChallenges(now = new Date()) {
+  return prisma.$transaction(async (tx) => {
+    const expired = await tx.challenge.findMany({
+      where: { status: "ACTIVE", deadline: { not: null, lte: now }, deletedAt: null },
+      include: { submissions: { where: { deletedAt: null, channelId: { not: null } } } },
+    });
+    const lockedChannels: Array<{ challengeId: string; submissionId: string; userId: string; channelId: string }> = [];
+
+    for (const challenge of expired) {
+      await tx.challenge.update({
+        where: { id: challenge.id },
+        data: { status: "CLOSED", closedAt: now },
+      });
+      for (const submission of challenge.submissions) {
+        if (submission.status === "OPEN") {
+          await tx.submission.update({
+            where: { id: submission.id },
+            data: { status: "LOCKED", lockedAt: now },
+          });
+        }
+        lockedChannels.push({
+          challengeId: challenge.id,
+          submissionId: submission.id,
+          userId: submission.userId,
+          channelId: submission.channelId!,
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          guildConfigId: challenge.guildConfigId,
+          action: "CHALLENGE_CLOSED_DEADLINE",
+          entityType: "Challenge",
+          entityId: challenge.id,
+          challengeId: challenge.id,
+          metadata: { deadline: challenge.deadline?.toISOString(), closedAt: now.toISOString() },
+        },
+      });
+    }
+    return lockedChannels;
+  });
+}
+
 export async function completeArchiveRecord(recordId: string, categoryId: string) {
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },
