@@ -12,12 +12,20 @@ import { updateGuildConfiguration } from "../services/configuration.service.js";
 import { getSubmissionQueryEmbed } from "../services/submission-query.service.js";
 import { deleteChallengeFromInteraction } from "../services/challenge-deletion.service.js";
 import { getAuditLogEmbed } from "../services/audit-query.service.js";
+import { deleteSubmissionFromInteraction } from "../services/submission-deletion.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "submission-delete") {
+          await interaction.deferReply({ ephemeral: true });
+          const submissionId = interaction.options.getString("submission_id", true);
+          await deleteSubmissionFromInteraction(interaction, submissionId);
+          await interaction.editReply("Submission을 삭제 처리했습니다. Artifact, Snapshot, Grade 이력은 보존됩니다.");
+          return;
+        }
         if (interaction.commandName === "audit") {
           await interaction.deferReply({ ephemeral: true });
           const entityId = interaction.options.getString("entity_id", true);

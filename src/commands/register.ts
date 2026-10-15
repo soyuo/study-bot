@@ -70,8 +70,15 @@ export async function registerApplicationCommands(client: Client) {
     .addStringOption((option) =>
       option.setName("entity_id").setDescription("Challenge, Submission 또는 Job ID").setRequired(true),
     );
+  const submissionDelete = new SlashCommandBuilder()
+    .setName("submission-delete")
+    .setDescription("Submission을 삭제 처리하고 이력을 보존합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("submission_id").setDescription("삭제할 Submission ID").setRequired(true),
+    );
   await rest.put(route, {
-    body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON(), challengeDelete.toJSON(), audit.toJSON()],
+    body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON(), challengeDelete.toJSON(), audit.toJSON(), submissionDelete.toJSON()],
   });
   return client.user?.id;
 }

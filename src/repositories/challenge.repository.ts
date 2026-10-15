@@ -372,6 +372,37 @@ export async function deleteChallengeWithSubmissions(input: { challengeId: strin
   });
 }
 
+export async function deleteSubmissionPreservingHistory(input: { submissionId: string; actorId: string }) {
+  return prisma.$transaction(async (tx) => {
+    const submission = await tx.submission.findUnique({
+      where: { id: input.submissionId },
+      include: { challenge: true },
+    });
+    if (!submission || submission.deletedAt) throw new Error("Submission not found");
+
+    const deletedAt = new Date();
+    const updated = await tx.submission.updateMany({
+      where: { id: submission.id, deletedAt: null },
+      data: { status: "DELETED", deletedAt, lockedAt: deletedAt },
+    });
+    if (updated.count !== 1) throw new Error("Submission is already deleted");
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: submission.challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "SUBMISSION_DELETED",
+        entityType: "Submission",
+        entityId: submission.id,
+        challengeId: submission.challengeId,
+        submissionId: submission.id,
+        metadata: { preservedArtifactsAndGrades: true },
+      },
+    });
+    return { ...submission, status: "DELETED" as const, deletedAt };
+  });
+}
+
 export async function completeArchiveRecord(recordId: string, categoryId: string) {
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },
