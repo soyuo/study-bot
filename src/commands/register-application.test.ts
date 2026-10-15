@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { Client, REST } from "discord.js";
 
-process.env.DISCORD_TOKEN ??= "test-token";
-process.env.DISCORD_CLIENT_ID ??= "test-client-id";
+process.env.DISCORD_TOKEN = "test-token";
+process.env.DISCORD_CLIENT_ID = "test-client-id";
 
 const { registerApplicationCommands } = await import("./register.js");
 
