@@ -1,0 +1,339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChallengeStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  REJECTED
+  CANCELLED
+  DELETED
+}
+
+enum ChallengeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SubmissionStatus {
+  OPEN
+  SUBMITTED
+  GRADING
+  GRADED
+  GRADING_FAILED
+  LOCKED
+  DELETED
+}
+
+enum ArtifactType {
+  TEXT
+  FILE
+  URL
+  GITHUB
+}
+
+enum VerificationMethod {
+  STATIC_ANALYSIS
+  DOCUMENT_REVIEW
+  TEST_RESULT
+  MANUAL_REVIEW
+}
+
+enum GradeStatus {
+  PASSED
+  FAILED
+  REVIEW_REQUIRED
+}
+
+enum JobType {
+  CHALLENGE_PARSE
+  CHALLENGE_ACTIVATE
+  SUBMISSION_SNAPSHOT
+  SUBMISSION_GRADING
+  SUBMISSION_REGRADING
+  ARCHIVE
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum ArchiveStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model GuildConfig {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  challengeChannelId    String?
+  submissionCategoryId  String?
+  adminRoleId           String?
+  adminLogChannelId     String?
+  timezone              String   @default("Asia/Seoul")
+  maxAttachmentBytes    Int      @default(10485760)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  challenges Challenge[]
+  jobs       Job[]
+  auditLogs  AuditLog[]
+
+  @@index([guildId])
+}
+
+model Challenge {
+  id                 String              @id @default(cuid())
+  guildConfigId      String
+  authorId            String
+  sourceChannelId     String
+  sourceMessageId     String
+  previewMessageId    String?
+  previewUserId       String?
+  publicChannelId     String?
+  publicMessageId     String?
+  title               String
+  description         String
+  difficulty          ChallengeDifficulty
+  requirements        Json
+  optionalRequirements Json
+  deliverables        Json
+  allowedLanguages    Json
+  constraints         Json
+  deadline            DateTime?
+  maxScore            Int
+  status              ChallengeStatus @default(DRAFT)
+  approvedById        String?
+  approvedAt          DateTime?
+  rejectedById        String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  activatedAt         DateTime?
+  closedAt             DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  guildConfig GuildConfig          @relation(fields: [guildConfigId], references: [id])
+  rubrics     RubricVersion[]
+  submissions Submission[]
+  archives    ArchiveRecord[]
+  jobs        Job[]
+  auditLogs   AuditLog[]
+
+  @@index([guildConfigId, status])
+  @@index([sourceChannelId, sourceMessageId])
+}
+
+model RubricVersion {
+  id          String   @id @default(cuid())
+  challengeId String
+  version     Int
+  isFrozen    Boolean  @default(false)
+  createdById  String?
+  createdAt   DateTime @default(now())
+
+  challenge  Challenge          @relation(fields: [challengeId], references: [id])
+  criteria   GradingCriterion[]
+  grades     Grade[]
+
+  @@unique([challengeId, version])
+  @@index([challengeId, isFrozen])
+}
+
+model GradingCriterion {
+  id               String             @id @default(cuid())
+  rubricVersionId  String
+  code             String
+  name             String
+  description      String
+  maxPoints        Int
+  evaluationGuide  String
+  verificationMethod VerificationMethod
+  createdAt        DateTime           @default(now())
+
+  rubricVersion RubricVersion @relation(fields: [rubricVersionId], references: [id])
+  results       GradeCriterionResult[]
+
+  @@unique([rubricVersionId, code])
+}
+
+model Submission {
+  id                String           @id @default(cuid())
+  challengeId       String
+  userId            String
+  channelId         String
+  controlMessageId  String?
+  status            SubmissionStatus @default(OPEN)
+  submittedAt       DateTime?
+  deletedAt         DateTime?
+  lockedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  challenge  Challenge           @relation(fields: [challengeId], references: [id])
+  snapshots  SubmissionSnapshot[]
+  artifacts  SubmissionArtifact[]
+  grades     Grade[]
+  archives   ArchiveRecord[]
+  jobs       Job[]
+  auditLogs  AuditLog[]
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, status])
+  @@index([userId, status])
+}
+
+model SubmissionSnapshot {
+  id           String   @id @default(cuid())
+  submissionId String
+  capturedAt   DateTime @default(now())
+  messageCount Int
+  metadata     Json?
+
+  submission Submission           @relation(fields: [submissionId], references: [id])
+  artifacts  SubmissionArtifact[]
+
+  @@index([submissionId, capturedAt])
+}
+
+model SubmissionArtifact {
+  id              String      @id @default(cuid())
+  submissionId    String
+  snapshotId      String?
+  type            ArtifactType
+  source          String
+  content         String?
+  storageKey      String?
+  sourceMessageId String?
+  filename        String?
+  mimeType        String?
+  sizeBytes       Int?
+  commitSha       String?
+  createdAt       DateTime    @default(now())
+  deletedAt       DateTime?
+
+  submission Submission          @relation(fields: [submissionId], references: [id])
+  snapshot   SubmissionSnapshot? @relation(fields: [snapshotId], references: [id])
+
+  @@index([submissionId, type])
+  @@index([snapshotId])
+}
+
+model Grade {
+  id               String      @id @default(cuid())
+  submissionId     String
+  rubricVersionId  String
+  snapshotId       String?
+  attempt           Int         @default(1)
+  totalScore       Int
+  maxScore         Int
+  status            GradeStatus
+  feedback         String
+  reviewRequired   Boolean     @default(false)
+  modelName        String?
+  modelResponseId  String?
+  createdAt        DateTime    @default(now())
+  deletedAt        DateTime?
+
+  submission    Submission       @relation(fields: [submissionId], references: [id])
+  rubricVersion RubricVersion    @relation(fields: [rubricVersionId], references: [id])
+  results       GradeCriterionResult[]
+
+  @@unique([submissionId, attempt])
+  @@index([submissionId, createdAt])
+}
+
+model GradeCriterionResult {
+  id          String   @id @default(cuid())
+  gradeId     String
+  criterionId String
+  points      Int
+  feedback    String
+  evidence    String?
+
+  grade     Grade           @relation(fields: [gradeId], references: [id])
+  criterion GradingCriterion @relation(fields: [criterionId], references: [id])
+
+  @@unique([gradeId, criterionId])
+}
+
+model ArchiveRecord {
+  id            String        @id @default(cuid())
+  challengeId   String
+  submissionId  String?
+  channelId     String
+  categoryId    String?
+  status        ArchiveStatus @default(PENDING)
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime      @default(now())
+
+  challenge  Challenge   @relation(fields: [challengeId], references: [id])
+  submission Submission? @relation(fields: [submissionId], references: [id])
+
+  @@index([challengeId, status])
+  @@index([channelId])
+}
+
+model Job {
+  id           String    @id @default(cuid())
+  guildConfigId String
+  challengeId  String?
+  submissionId String?
+  type         JobType
+  status       JobStatus @default(PENDING)
+  dedupeKey    String    @unique
+  attempt      Int       @default(0)
+  maxAttempts  Int       @default(3)
+  payload      Json?
+  lastError    String?
+  availableAt  DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  guildConfig GuildConfig @relation(fields: [guildConfigId], references: [id])
+  challenge   Challenge?  @relation(fields: [challengeId], references: [id])
+  submission  Submission? @relation(fields: [submissionId], references: [id])
+
+  @@index([status, availableAt])
+  @@index([challengeId, type])
+  @@index([submissionId, type])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  guildConfigId String
+  actorId      String?
+  action       String
+  entityType   String
+  entityId     String?
+  challengeId  String?
+  submissionId String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  guildConfig GuildConfig @relation(fields: [guildConfigId], references: [id])
+  challenge   Challenge?  @relation(fields: [challengeId], references: [id])
+  submission  Submission? @relation(fields: [submissionId], references: [id])
+
+  @@index([guildConfigId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+}
