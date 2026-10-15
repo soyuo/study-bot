@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "node --import tsx --test src/core.test.ts src/config.test.ts src/services/health.service.test.ts src/utils/retry.test.ts",
-    "test:integration": "node --import tsx --test src/integration/repository.integration.test.ts src/integration/challenge-registration.integration.test.ts src/integration/challenge-approval.integration.test.ts",
+    "test:integration": "node --import tsx --test src/integration/repository.integration.test.ts src/integration/challenge-registration.integration.test.ts src/integration/challenge-approval.integration.test.ts src/integration/challenge-publication.integration.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
