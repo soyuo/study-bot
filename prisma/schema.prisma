@@ -81,6 +81,7 @@ model GuildConfig {
   guildId               String   @unique
   challengeChannelId    String?
   submissionCategoryId  String?
+  archiveCategoryId     String?
   adminRoleId           String?
   adminLogChannelId     String?
   timezone              String   @default("Asia/Seoul")

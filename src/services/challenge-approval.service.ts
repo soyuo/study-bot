@@ -1,4 +1,5 @@
 import {
+  ChannelType,
   PermissionFlagsBits,
   type ButtonInteraction,
   type Guild,
@@ -71,19 +72,31 @@ export async function approveChallengeFromInteraction(interaction: ButtonInterac
     try {
       if (archive.submission?.channelId) {
         const submissionChannel = await guild.channels.fetch(archive.submission.channelId);
-        if (submissionChannel?.isTextBased() && "permissionOverwrites" in submissionChannel) {
-          await submissionChannel.permissionOverwrites.edit(archive.submission.userId, {
-            ViewChannel: false,
-            SendMessages: false,
-            AttachFiles: false,
-            AddReactions: false,
-            SendMessagesInThreads: false,
-            CreatePublicThreads: false,
-            CreatePrivateThreads: false,
-          });
+        if (!submissionChannel?.isTextBased() || !("permissionOverwrites" in submissionChannel)) {
+          throw new Error("Submission channel is not available for archiving");
         }
+        await submissionChannel.permissionOverwrites.edit(archive.submission.userId, {
+          ViewChannel: false,
+          SendMessages: false,
+          AttachFiles: false,
+          AddReactions: false,
+          SendMessagesInThreads: false,
+          CreatePublicThreads: false,
+          CreatePrivateThreads: false,
+        });
+
+        const archiveCategoryId = challenge.guildConfig.archiveCategoryId;
+        if (!archiveCategoryId) throw new Error("Archive category is not configured");
+        const archiveCategory = await guild.channels.fetch(archiveCategoryId);
+        if (!archiveCategory || archiveCategory.type !== ChannelType.GuildCategory) {
+          throw new Error("Archive category is not available");
+        }
+        await submissionChannel.setParent(archiveCategory.id, {
+          lockPermissions: true,
+          reason: `Challenge ${archive.challengeId} archived`,
+        });
       }
-      await completeArchiveRecord(archive.id);
+      await completeArchiveRecord(archive.id, challenge.guildConfig.archiveCategoryId!);
     } catch (error) {
       await failArchiveRecord(archive.id, error instanceof Error ? error.message : "Archive failed");
     }

@@ -257,10 +257,18 @@ export async function findPendingArchiveRecords(input: {
   });
 }
 
-export async function completeArchiveRecord(recordId: string) {
+export async function setGuildArchiveCategory(input: { guildId: string; archiveCategoryId: string }) {
+  return prisma.guildConfig.upsert({
+    where: { guildId: input.guildId },
+    create: { guildId: input.guildId, archiveCategoryId: input.archiveCategoryId },
+    update: { archiveCategoryId: input.archiveCategoryId },
+  });
+}
+
+export async function completeArchiveRecord(recordId: string, categoryId: string) {
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },
-    data: { status: "COMPLETED", completedAt: new Date() },
+    data: { status: "COMPLETED", categoryId, completedAt: new Date() },
   });
 }
 
