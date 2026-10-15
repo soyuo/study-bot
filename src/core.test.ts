@@ -3,6 +3,7 @@ import test from "node:test";
 import { customIds, parseCustomId } from "./commands/ids.js";
 import { formatDiscordTimestamp, isDeadlinePassed, resolveDeadline } from "./utils/deadline.js";
 import { validateGradingResponse } from "./validators/grading.schema.js";
+import { parseGitHubUrl } from "./services/github.service.js";
 
 test("relative deadline resolves to exactly 72 hours", () => {
   const base = new Date("2026-01-01T00:00:00.000Z");
@@ -24,6 +25,15 @@ test("custom IDs round-trip through the parser", () => {
     resourceId: "submission_123",
   });
   assert.equal(parseCustomId("invalid"), null);
+});
+
+test("GitHub submission URLs are parsed into repository coordinates", () => {
+  assert.deepEqual(parseGitHubUrl("https://github.com/example/project/tree/main"), {
+    owner: "example",
+    repository: "project",
+    ref: "main",
+  });
+  assert.equal(parseGitHubUrl("https://gitlab.com/example/project"), null);
 });
 
 test("grading result is validated against the frozen rubric", () => {

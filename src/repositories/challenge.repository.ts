@@ -574,6 +574,7 @@ export async function createSubmissionSnapshot(input: {
     filename?: string;
     mimeType?: string;
     sizeBytes?: number;
+    commitSha?: string;
   }>;
 }) {
   return prisma.submissionSnapshot.create({
@@ -592,6 +593,7 @@ export async function createSubmissionSnapshot(input: {
           filename: artifact.filename,
           mimeType: artifact.mimeType,
           sizeBytes: artifact.sizeBytes,
+          commitSha: artifact.commitSha,
         })),
       },
     },

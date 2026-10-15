@@ -10,6 +10,7 @@ import {
   lockSubmission,
   queueSubmissionGrading,
 } from "../repositories/challenge.repository.js";
+import { resolveGitHubSnapshot } from "./github.service.js";
 
 const urlPattern = /https?:\/\/[^\s<>]+/g;
 const githubPattern = /^https?:\/\/github\.com\//i;
@@ -22,6 +23,7 @@ type SnapshotArtifact = {
   filename?: string;
   mimeType?: string;
   sizeBytes?: number;
+  commitSha?: string;
 };
 
 function collectMessageArtifacts(message: Message, maxAttachmentBytes: number): SnapshotArtifact[] {
@@ -113,6 +115,14 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
     submission.challenge.guildConfig.maxAttachmentBytes,
   );
 
+  const enrichedArtifacts = await Promise.all(
+    collected.artifacts.map(async (artifact) => {
+      if (artifact.type !== "GITHUB") return artifact;
+      const resolved = await resolveGitHubSnapshot(artifact.source);
+      return { ...artifact, content: resolved.content, commitSha: resolved.commitSha };
+    }),
+  );
+
   await lockSubmission(submissionId, submittedAt);
   await channel.permissionOverwrites.edit(submission.userId, {
     SendMessages: false,
@@ -137,7 +147,7 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
       controlMessageId: submission.controlMessageId,
       capturedAt: submittedAt.toISOString(),
     },
-    artifacts: collected.artifacts,
+    artifacts: enrichedArtifacts,
   });
 
   const grading = await queueSubmissionGrading({
