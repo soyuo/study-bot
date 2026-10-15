@@ -6,7 +6,7 @@ const optionalId = z.preprocess(
   z.string().trim().min(1).optional(),
 );
 
-const envSchema = z.object({
+export const envSchema = z.object({
   DISCORD_TOKEN: z.string().trim().min(1),
   DISCORD_CLIENT_ID: z.string().trim().min(1),
   DISCORD_GUILD_ID: optionalId,
@@ -20,11 +20,13 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 });
 
-const parsed = envSchema.safeParse(process.env);
-
-if (!parsed.success) {
-  console.error("Invalid environment variables:", parsed.error.flatten().fieldErrors);
-  throw new Error("Invalid environment configuration");
+export function parseConfig(input: Record<string, unknown> = process.env) {
+  const parsed = envSchema.safeParse(input);
+  if (!parsed.success) {
+    console.error("Invalid environment variables:", parsed.error.flatten().fieldErrors);
+    throw new Error("Invalid environment configuration");
+  }
+  return parsed.data;
 }
 
-export const config = parsed.data;
+export const config = parseConfig();
