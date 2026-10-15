@@ -24,7 +24,7 @@ type SnapshotArtifact = {
   sizeBytes?: number;
 };
 
-function collectMessageArtifacts(message: Message): SnapshotArtifact[] {
+function collectMessageArtifacts(message: Message, maxAttachmentBytes: number): SnapshotArtifact[] {
   const artifacts: SnapshotArtifact[] = [];
 
   if (message.content.trim()) {
@@ -37,6 +37,11 @@ function collectMessageArtifacts(message: Message): SnapshotArtifact[] {
   }
 
   for (const attachment of message.attachments.values()) {
+    if (attachment.size > maxAttachmentBytes) {
+      throw new Error(
+        `Attachment ${attachment.name ?? attachment.id} exceeds the ${maxAttachmentBytes}-byte limit`,
+      );
+    }
     artifacts.push({
       type: "FILE",
       source: attachment.url,
@@ -59,7 +64,11 @@ function collectMessageArtifacts(message: Message): SnapshotArtifact[] {
   return artifacts;
 }
 
-async function collectChannelArtifacts(channel: TextChannel, controlMessageId: string | null) {
+async function collectChannelArtifacts(
+  channel: TextChannel,
+  controlMessageId: string | null,
+  maxAttachmentBytes: number,
+) {
   const messages: Message[] = [];
   let before: string | undefined;
 
@@ -79,7 +88,7 @@ async function collectChannelArtifacts(channel: TextChannel, controlMessageId: s
   messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
   return {
     messages,
-    artifacts: messages.flatMap(collectMessageArtifacts),
+    artifacts: messages.flatMap((message) => collectMessageArtifacts(message, maxAttachmentBytes)),
   };
 }
 
@@ -96,10 +105,15 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
     throw new Error("Submission channel does not match");
   }
 
-  const submittedAt = new Date();
-  await lockSubmission(submissionId, submittedAt);
-
   const channel = interaction.channel as TextChannel;
+  const submittedAt = new Date();
+  const collected = await collectChannelArtifacts(
+    channel,
+    submission.controlMessageId,
+    submission.challenge.guildConfig.maxAttachmentBytes,
+  );
+
+  await lockSubmission(submissionId, submittedAt);
   await channel.permissionOverwrites.edit(submission.userId, {
     SendMessages: false,
     AttachFiles: false,
@@ -114,7 +128,6 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
     components: [],
   });
 
-  const collected = await collectChannelArtifacts(channel, submission.controlMessageId);
   const snapshot = await createSubmissionSnapshot({
     submissionId,
     capturedAt: submittedAt,

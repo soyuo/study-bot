@@ -516,7 +516,7 @@ export async function clearSubmissionChannel(submissionId: string) {
 export async function findSubmissionForCompletion(submissionId: string) {
   return prisma.submission.findUnique({
     where: { id: submissionId },
-    include: { challenge: true },
+    include: { challenge: { include: { guildConfig: true } } },
   });
 }
 
