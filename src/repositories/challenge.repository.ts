@@ -336,6 +336,42 @@ export async function closeExpiredChallenges(now = new Date()) {
   });
 }
 
+export async function deleteChallengeWithSubmissions(input: { challengeId: string; actorId: string }) {
+  return prisma.$transaction(async (tx) => {
+    const challenge = await tx.challenge.findUnique({ where: { id: input.challengeId } });
+    if (!challenge || challenge.deletedAt) throw new Error("Challenge not found");
+
+    const deletedAt = new Date();
+    const submissions = await tx.submission.findMany({
+      where: { challengeId: challenge.id, deletedAt: null },
+      select: { id: true },
+    });
+    await tx.submission.updateMany({
+      where: { challengeId: challenge.id, deletedAt: null },
+      data: { status: "DELETED", deletedAt },
+    });
+    await tx.challenge.update({
+      where: { id: challenge.id },
+      data: { status: "DELETED", deletedAt },
+    });
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "CHALLENGE_DELETED",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: {
+          deletedSubmissionCount: submissions.length,
+          preservedArtifactsAndGrades: true,
+        },
+      },
+    });
+    return { ...challenge, status: "DELETED" as const, deletedAt, deletedSubmissionCount: submissions.length };
+  });
+}
+
 export async function completeArchiveRecord(recordId: string, categoryId: string) {
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },

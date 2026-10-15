@@ -10,12 +10,22 @@ import { regradeSubmissionFromInteraction } from "../services/regrading.service.
 import { retryArchivesFromInteraction } from "../services/archive-retry.service.js";
 import { updateGuildConfiguration } from "../services/configuration.service.js";
 import { getSubmissionQueryEmbed } from "../services/submission-query.service.js";
+import { deleteChallengeFromInteraction } from "../services/challenge-deletion.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "challenge-delete") {
+          await interaction.deferReply({ ephemeral: true });
+          const challengeId = interaction.options.getString("challenge_id", true);
+          const result = await deleteChallengeFromInteraction(interaction, challengeId);
+          await interaction.editReply(
+            `Challenge가 삭제 처리되었습니다. ${result.deletedSubmissionCount}개의 Submission을 삭제했고 Artifact와 Grade는 보존했습니다.`,
+          );
+          return;
+        }
         if (interaction.commandName === "submission") {
           await interaction.deferReply({ ephemeral: true });
           const inspect = interaction.options.getSubcommand() === "inspect";

@@ -56,6 +56,15 @@ export async function registerApplicationCommands(client: Client) {
         .setDescription("관리자용 제출 상세 조회입니다.")
         .addStringOption((option) => option.setName("submission_id").setDescription("Submission ID").setRequired(true)),
     );
-  await rest.put(route, { body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON()] });
+  const challengeDelete = new SlashCommandBuilder()
+    .setName("challenge-delete")
+    .setDescription("Challenge와 연결된 Submission을 삭제 처리합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("challenge_id").setDescription("삭제할 Challenge ID").setRequired(true),
+    );
+  await rest.put(route, {
+    body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON(), challengeDelete.toJSON()],
+  });
   return client.user?.id;
 }
