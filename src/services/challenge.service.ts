@@ -13,6 +13,7 @@ import {
   type ChallengeRegistrationInput,
   type ParsedChallenge,
 } from "../validators/challenge.schema.js";
+import type { ChallengeParser } from "./challenge-parser.service.js";
 import { formatDiscordTimestamp, isDeadlinePassed } from "../utils/deadline.js";
 
 export interface ChallengeEmbedData {
@@ -35,6 +36,15 @@ export async function createChallengeDraft(input: {
 }) {
   const registration = challengeRegistrationInputSchema.parse(input.registration);
   const parsed = parsedChallengeSchema.parse(input.parsed);
+  return createDraftChallenge({ registration, parsed });
+}
+
+export async function createChallengeDraftFromParser(input: {
+  registration: ChallengeRegistrationInput;
+  parser: ChallengeParser;
+}) {
+  const registration = challengeRegistrationInputSchema.parse(input.registration);
+  const parsed = await input.parser.parse(registration);
   return createDraftChallenge({ registration, parsed });
 }
 
