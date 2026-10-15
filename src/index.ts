@@ -25,7 +25,7 @@ let stopDeadlineSweep: (() => Promise<void>) | undefined;
 let stopGradingWorker: (() => Promise<void>) | undefined;
 let shuttingDown = false;
 
-async function shutdown(signal: string) {
+async function shutdown(signal: string, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, "Study bot shutdown started");
@@ -35,6 +35,7 @@ async function shutdown(signal: string) {
     client.destroy();
     await disconnectDatabase();
     logger.info("Study bot shutdown completed");
+    process.exitCode = exitCode;
   } catch (error) {
     logger.error({ err: error }, "Study bot shutdown failed");
     process.exitCode = 1;
@@ -64,6 +65,14 @@ registerInteractionHandler(client);
 
 process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason }, "Unhandled promise rejection");
+  void shutdown("unhandledRejection", 1);
+});
+process.once("uncaughtException", (error) => {
+  logger.fatal({ err: error }, "Uncaught exception");
+  void shutdown("uncaughtException", 1);
+});
 
 try {
   await connectDatabase();
