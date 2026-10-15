@@ -17,6 +17,7 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose stop postgres",
     "db:logs": "docker compose logs -f postgres",
+    "db:bootstrap": "npm run db:up && npm run db:check && npm run db:migrate:deploy",
     "db:migrate": "prisma migrate dev --name init",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status"
