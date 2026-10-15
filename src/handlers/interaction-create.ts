@@ -7,12 +7,19 @@ import {
 } from "../services/challenge-approval.service.js";
 import { completeSubmission } from "../services/submission-snapshot.service.js";
 import { regradeSubmissionFromInteraction } from "../services/regrading.service.js";
+import { retryArchivesFromInteraction } from "../services/archive-retry.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "archive-retry") {
+          await interaction.deferReply({ ephemeral: true });
+          const result = await retryArchivesFromInteraction(interaction);
+          await interaction.editReply(`Archive 재시도: ${result.completed}/${result.queued}건 완료되었습니다.`);
+          return;
+        }
         if (interaction.commandName !== "regrade") return;
         await interaction.deferReply({ ephemeral: true });
         const submissionId = interaction.options.getString("submission_id", true);

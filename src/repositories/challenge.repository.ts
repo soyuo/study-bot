@@ -265,6 +265,10 @@ export async function setGuildArchiveCategory(input: { guildId: string; archiveC
   });
 }
 
+export async function findGuildConfigByGuildId(guildId: string) {
+  return prisma.guildConfig.findUnique({ where: { guildId } });
+}
+
 export async function completeArchiveRecord(recordId: string, categoryId: string) {
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },
@@ -276,6 +280,31 @@ export async function failArchiveRecord(recordId: string, errorMessage: string) 
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },
     data: { status: "FAILED", errorMessage: errorMessage.slice(0, 2_000) },
+  });
+}
+
+export async function retryFailedArchiveRecords(input: { guildConfigId: string; actorId: string }) {
+  return prisma.$transaction(async (tx) => {
+    const failed = await tx.archiveRecord.findMany({
+      where: { status: "FAILED", challenge: { guildConfigId: input.guildConfigId } },
+      select: { id: true, challengeId: true, submissionId: true },
+    });
+    if (failed.length === 0) return { count: 0, recordIds: [] as string[] };
+
+    await tx.archiveRecord.updateMany({
+      where: { id: { in: failed.map((record) => record.id) }, status: "FAILED" },
+      data: { status: "PENDING", errorMessage: null, startedAt: new Date() },
+    });
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: input.guildConfigId,
+        actorId: input.actorId,
+        action: "ARCHIVE_RETRY_QUEUED",
+        entityType: "ArchiveRecord",
+        metadata: { count: failed.length, recordIds: failed.map((record) => record.id) },
+      },
+    });
+    return { count: failed.length, recordIds: failed.map((record) => record.id) };
   });
 }
 

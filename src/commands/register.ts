@@ -23,6 +23,10 @@ export async function registerApplicationCommands(client: Client) {
   const route = config.DISCORD_GUILD_ID
     ? Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID)
     : Routes.applicationCommands(config.DISCORD_CLIENT_ID);
-  await rest.put(route, { body: [command.toJSON()] });
+  const archiveRetry = new SlashCommandBuilder()
+    .setName("archive-retry")
+    .setDescription("실패한 제출 채널 Archive를 다시 실행합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+  await rest.put(route, { body: [command.toJSON(), archiveRetry.toJSON()] });
   return client.user?.id;
 }
