@@ -59,6 +59,15 @@ client.once("ready", (readyClient) => {
 });
 
 client.on("error", (error) => logger.error({ err: error }, "Discord client error"));
+client.on("warn", (message) => logger.warn({ message }, "Discord client warning"));
+client.on("debug", (message) => logger.debug({ message }, "Discord client debug"));
+client.on("shardError", (error, shardId) => {
+  logger.error({ err: error, shardId }, "Discord shard error");
+});
+client.on("invalidated", () => {
+  logger.fatal("Discord session was invalidated");
+  void shutdown("discordInvalidated", 1);
+});
 
 registerMessageHandler(client);
 registerInteractionHandler(client);
