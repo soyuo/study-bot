@@ -393,6 +393,162 @@ export async function queueSubmissionGrading(input: {
   });
 }
 
+export async function claimNextSubmissionGradingJob(now = new Date()) {
+  return prisma.$transaction(async (tx) => {
+    const candidate = await tx.job.findFirst({
+      where: {
+        type: "SUBMISSION_GRADING",
+        status: "PENDING",
+        availableAt: { lte: now },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!candidate) return null;
+
+    const claimed = await tx.job.updateMany({
+      where: { id: candidate.id, status: "PENDING", availableAt: { lte: now } },
+      data: {
+        status: "RUNNING",
+        attempt: { increment: 1 },
+        startedAt: now,
+        lastError: null,
+      },
+    });
+    if (claimed.count !== 1) return null;
+
+    return tx.job.findUnique({
+      where: { id: candidate.id },
+      include: {
+        submission: {
+          include: {
+            challenge: { include: { rubrics: { include: { criteria: true } } } },
+            grades: { orderBy: { attempt: "desc" }, take: 1 },
+          },
+        },
+      },
+    });
+  });
+}
+
+export async function findSubmissionGradingSnapshot(input: {
+  submissionId: string;
+  snapshotId: string;
+}) {
+  return prisma.submissionSnapshot.findFirst({
+    where: { id: input.snapshotId, submissionId: input.submissionId },
+    include: { artifacts: { where: { deletedAt: null }, orderBy: { createdAt: "asc" } } },
+  });
+}
+
+export async function completeSubmissionGrading(input: {
+  jobId: string;
+  submissionId: string;
+  snapshotId: string;
+  rubricVersionId: string;
+  modelName: string;
+  totalScore: number;
+  maxScore: number;
+  status: "PASSED" | "FAILED" | "REVIEW_REQUIRED";
+  reviewRequired: boolean;
+  feedback: string;
+  results: Array<{ criterionId: string; points: number; feedback: string; evidence: string[] }>;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const job = await tx.job.findUniqueOrThrow({ where: { id: input.jobId } });
+    if (job.status !== "RUNNING") throw new Error("Grading job is not running");
+
+    const grade = await tx.grade.create({
+      data: {
+        submissionId: input.submissionId,
+        rubricVersionId: input.rubricVersionId,
+        snapshotId: input.snapshotId,
+        attempt: job.attempt,
+        totalScore: input.totalScore,
+        maxScore: input.maxScore,
+        status: input.status,
+        feedback: input.feedback,
+        reviewRequired: input.reviewRequired,
+        modelName: input.modelName,
+        results: {
+          create: input.results.map((result) => ({
+            criterionId: result.criterionId,
+            points: result.points,
+            feedback: result.feedback,
+            evidence: result.evidence.join("\n"),
+          })),
+        },
+      },
+    });
+
+    await tx.submission.updateMany({
+      where: { id: input.submissionId, status: "GRADING", deletedAt: null },
+      data: { status: "GRADED" },
+    });
+    await tx.job.update({
+      where: { id: input.jobId },
+      data: { status: "SUCCEEDED", finishedAt: new Date(), lastError: null },
+    });
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: job.guildConfigId,
+        action: "SUBMISSION_GRADED",
+        entityType: "Grade",
+        entityId: grade.id,
+        challengeId: job.challengeId,
+        submissionId: input.submissionId,
+        metadata: { jobId: input.jobId, totalScore: input.totalScore, maxScore: input.maxScore },
+      },
+    });
+
+    return grade;
+  });
+}
+
+export async function failSubmissionGrading(input: {
+  jobId: string;
+  submissionId: string;
+  errorMessage: string;
+  retryDelayMs: number;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const job = await tx.job.findUniqueOrThrow({ where: { id: input.jobId } });
+    if (job.status !== "RUNNING") throw new Error("Grading job is not running");
+
+    const exhausted = job.attempt >= job.maxAttempts;
+    const status = exhausted ? "FAILED" : "PENDING";
+    await tx.job.update({
+      where: { id: input.jobId },
+      data: {
+        status,
+        lastError: input.errorMessage.slice(0, 2_000),
+        availableAt: exhausted ? job.availableAt : new Date(Date.now() + input.retryDelayMs),
+        finishedAt: exhausted ? new Date() : null,
+      },
+    });
+
+    if (exhausted) {
+      await tx.submission.updateMany({
+        where: { id: input.submissionId, status: "GRADING" },
+        data: { status: "GRADING_FAILED" },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: job.guildConfigId,
+        action: exhausted ? "SUBMISSION_GRADING_FAILED" : "SUBMISSION_GRADING_RETRY_SCHEDULED",
+        entityType: "Submission",
+        entityId: input.submissionId,
+        challengeId: job.challengeId,
+        submissionId: input.submissionId,
+        metadata: { jobId: input.jobId, attempt: job.attempt, error: input.errorMessage.slice(0, 2_000) },
+      },
+    });
+
+    return { exhausted, attempt: job.attempt };
+  });
+}
+
 export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
   return prisma.submission.update({
     where: { id: input.submissionId, status: "OPEN" },
