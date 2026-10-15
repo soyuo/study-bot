@@ -832,6 +832,26 @@ export async function recordGradeResultPublished(input: {
   });
 }
 
+export async function findSubmissionInspection(submissionId: string) {
+  return prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: {
+      challenge: { include: { guildConfig: true } },
+      snapshots: {
+        orderBy: { capturedAt: "desc" },
+        take: 1,
+        include: { artifacts: { where: { deletedAt: null }, orderBy: { createdAt: "asc" } } },
+      },
+      grades: {
+        where: { deletedAt: null },
+        orderBy: { attempt: "desc" },
+        take: 1,
+        include: { results: { include: { criterion: true }, orderBy: { criterion: { code: "asc" } } } },
+      },
+    },
+  });
+}
+
 export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
   return prisma.submission.update({
     where: { id: input.submissionId, status: "OPEN" },

@@ -9,12 +9,21 @@ import { completeSubmission } from "../services/submission-snapshot.service.js";
 import { regradeSubmissionFromInteraction } from "../services/regrading.service.js";
 import { retryArchivesFromInteraction } from "../services/archive-retry.service.js";
 import { updateGuildConfiguration } from "../services/configuration.service.js";
+import { getSubmissionQueryEmbed } from "../services/submission-query.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "submission") {
+          await interaction.deferReply({ ephemeral: true });
+          const inspect = interaction.options.getSubcommand() === "inspect";
+          const submissionId = interaction.options.getString("submission_id", true);
+          const embed = await getSubmissionQueryEmbed(interaction, submissionId, inspect);
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
         if (interaction.commandName === "config") {
           await interaction.deferReply({ ephemeral: true });
           const result = await updateGuildConfiguration(interaction);

@@ -41,6 +41,21 @@ export async function registerApplicationCommands(client: Client) {
       option.setName("archive_category").setDescription("Archive 카테고리").addChannelTypes(4),
     )
     .addRoleOption((option) => option.setName("admin_role").setDescription("관리자 Role"));
-  await rest.put(route, { body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON()] });
+  const submission = new SlashCommandBuilder()
+    .setName("submission")
+    .setDescription("Submission 상태를 조회합니다.")
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("status")
+        .setDescription("본인 제출 상태를 조회합니다.")
+        .addStringOption((option) => option.setName("submission_id").setDescription("Submission ID").setRequired(true)),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("inspect")
+        .setDescription("관리자용 제출 상세 조회입니다.")
+        .addStringOption((option) => option.setName("submission_id").setDescription("Submission ID").setRequired(true)),
+    );
+  await rest.put(route, { body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON()] });
   return client.user?.id;
 }
