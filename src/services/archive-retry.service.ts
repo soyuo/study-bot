@@ -14,18 +14,19 @@ import {
   retryFailedArchiveRecords,
 } from "../repositories/challenge.repository.js";
 
-async function assertArchiveAdmin(interaction: ChatInputCommandInteraction, guild: Guild) {
+async function assertArchiveAdmin(interaction: ChatInputCommandInteraction, guild: Guild, configuredRoleId?: string | null) {
   const member = await guild.members.fetch(interaction.user.id);
   const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
-  const hasConfiguredRole = config.ADMIN_ROLE_ID ? member.roles.cache.has(config.ADMIN_ROLE_ID) : false;
+  const roleId = configuredRoleId ?? config.ADMIN_ROLE_ID;
+  const hasConfiguredRole = roleId ? member.roles.cache.has(roleId) : false;
   if (!isAdmin && !hasConfiguredRole) throw new Error("Only administrators can retry archives");
 }
 
 export async function retryArchivesFromInteraction(interaction: ChatInputCommandInteraction) {
   if (!interaction.guild) throw new Error("Archive retry must be requested in a guild");
-  await assertArchiveAdmin(interaction, interaction.guild);
   const storedGuildConfig = await findGuildConfigByGuildId(interaction.guild.id);
   if (!storedGuildConfig) throw new Error("Guild configuration is not initialized");
+  await assertArchiveAdmin(interaction, interaction.guild, storedGuildConfig.adminRoleId);
   const guildConfig = await retryFailedArchiveRecords({
     guildConfigId: storedGuildConfig.id,
     actorId: interaction.user.id,

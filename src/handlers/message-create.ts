@@ -7,12 +7,12 @@ import {
   buildChallengePreviewEmbed,
   createChallengeDraftFromParser,
 } from "../services/challenge.service.js";
-import { setChallengePreviewMessage } from "../repositories/challenge.repository.js";
+import { findGuildConfigByGuildId, setChallengePreviewMessage } from "../repositories/challenge.repository.js";
 
-function isChallengeAdmin(message: Message): boolean {
+function isChallengeAdmin(message: Message, adminRoleId: string | null | undefined): boolean {
   if (!message.member) return false;
   if (message.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  return config.ADMIN_ROLE_ID ? message.member.roles.cache.has(config.ADMIN_ROLE_ID) : false;
+  return adminRoleId ? message.member.roles.cache.has(adminRoleId) : false;
 }
 
 function toStringArray(value: unknown): string[] {
@@ -22,9 +22,10 @@ function toStringArray(value: unknown): string[] {
 export function registerMessageHandler(client: Client): void {
   client.on(Events.MessageCreate, async (message: Message) => {
     if (message.author.bot || !message.guild) return;
-    if (config.CHALLENGE_CHANNEL_ID && message.channelId !== config.CHALLENGE_CHANNEL_ID) return;
+    const guildConfig = await findGuildConfigByGuildId(message.guild.id);
+    if (!guildConfig?.challengeChannelId || message.channelId !== guildConfig.challengeChannelId) return;
     if (!message.content.trim() && message.attachments.size === 0) return;
-    if (!isChallengeAdmin(message)) return;
+    if (!isChallengeAdmin(message, guildConfig.adminRoleId)) return;
     if (!config.GEMINI_API_KEY) {
       logger.error({ guildId: message.guild.id }, "Cannot parse challenge: GEMINI_API_KEY is not configured");
       return;

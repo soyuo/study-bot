@@ -27,6 +27,20 @@ export async function registerApplicationCommands(client: Client) {
     .setName("archive-retry")
     .setDescription("실패한 제출 채널 Archive를 다시 실행합니다.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
-  await rest.put(route, { body: [command.toJSON(), archiveRetry.toJSON()] });
+  const guildConfig = new SlashCommandBuilder()
+    .setName("config")
+    .setDescription("현재 서버의 Study Bot 설정을 변경합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addChannelOption((option) =>
+      option.setName("challenge_channel").setDescription("Challenge 등록 채널").addChannelTypes(0),
+    )
+    .addChannelOption((option) =>
+      option.setName("submission_category").setDescription("제출 채널 카테고리").addChannelTypes(4),
+    )
+    .addChannelOption((option) =>
+      option.setName("archive_category").setDescription("Archive 카테고리").addChannelTypes(4),
+    )
+    .addRoleOption((option) => option.setName("admin_role").setDescription("관리자 Role"));
+  await rest.put(route, { body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON()] });
   return client.user?.id;
 }

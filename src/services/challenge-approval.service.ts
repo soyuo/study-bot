@@ -40,11 +40,17 @@ function toEmbedData(challenge: NonNullable<Awaited<ReturnType<typeof findChalle
   };
 }
 
-async function assertAdmin(interaction: ButtonInteraction, guildId: string): Promise<Guild> {
+async function assertAdmin(
+  interaction: ButtonInteraction,
+  guildId: string,
+  configuredAdminRoleId?: string | null,
+): Promise<Guild> {
   const guild = await interaction.client.guilds.fetch(guildId);
   const member = await guild.members.fetch(interaction.user.id);
   const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
-  const hasConfiguredRole = config.ADMIN_ROLE_ID ? member.roles.cache.has(config.ADMIN_ROLE_ID) : false;
+  const hasConfiguredRole = configuredAdminRoleId
+    ? member.roles.cache.has(configuredAdminRoleId)
+    : config.ADMIN_ROLE_ID ? member.roles.cache.has(config.ADMIN_ROLE_ID) : false;
   if (!isAdmin && !hasConfiguredRole) throw new Error("Only administrators can approve challenges");
   return guild;
 }
@@ -53,7 +59,7 @@ export async function approveChallengeFromInteraction(interaction: ButtonInterac
   const challenge = await findChallengeForApproval(challengeId);
   if (!challenge) throw new Error("Challenge not found");
 
-  const guild = await assertAdmin(interaction, challenge.guildConfig.guildId);
+  const guild = await assertAdmin(interaction, challenge.guildConfig.guildId, challenge.guildConfig.adminRoleId);
   if (!challenge.guildConfig.challengeChannelId) throw new Error("Challenge channel is not configured");
 
   const channel = await guild.channels.fetch(challenge.guildConfig.challengeChannelId);
@@ -118,6 +124,6 @@ export async function approveChallengeFromInteraction(interaction: ButtonInterac
 export async function rejectChallengeFromInteraction(interaction: ButtonInteraction, challengeId: string) {
   const challenge = await findChallengeForApproval(challengeId);
   if (!challenge) throw new Error("Challenge not found");
-  await assertAdmin(interaction, challenge.guildConfig.guildId);
+  await assertAdmin(interaction, challenge.guildConfig.guildId, challenge.guildConfig.adminRoleId);
   return rejectChallenge({ challengeId, rejecterId: interaction.user.id });
 }

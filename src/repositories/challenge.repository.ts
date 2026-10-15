@@ -269,6 +269,31 @@ export async function findGuildConfigByGuildId(guildId: string) {
   return prisma.guildConfig.findUnique({ where: { guildId } });
 }
 
+export async function updateGuildConfig(input: {
+  guildId: string;
+  challengeChannelId?: string;
+  submissionCategoryId?: string;
+  archiveCategoryId?: string;
+  adminRoleId?: string;
+}) {
+  return prisma.guildConfig.upsert({
+    where: { guildId: input.guildId },
+    create: {
+      guildId: input.guildId,
+      challengeChannelId: input.challengeChannelId,
+      submissionCategoryId: input.submissionCategoryId,
+      archiveCategoryId: input.archiveCategoryId,
+      adminRoleId: input.adminRoleId,
+    },
+    update: {
+      ...(input.challengeChannelId ? { challengeChannelId: input.challengeChannelId } : {}),
+      ...(input.submissionCategoryId ? { submissionCategoryId: input.submissionCategoryId } : {}),
+      ...(input.archiveCategoryId ? { archiveCategoryId: input.archiveCategoryId } : {}),
+      ...(input.adminRoleId ? { adminRoleId: input.adminRoleId } : {}),
+    },
+  });
+}
+
 export async function completeArchiveRecord(recordId: string, categoryId: string) {
   return prisma.archiveRecord.updateMany({
     where: { id: recordId, status: "PENDING" },

@@ -6,7 +6,6 @@ import {
   PermissionFlagsBits,
   type ButtonInteraction,
 } from "discord.js";
-import { config } from "../config.js";
 import {
   findChallengeForSubmission,
   clearSubmissionChannel,
@@ -41,13 +40,12 @@ export async function createSubmissionChannel(
   challengeId: string,
 ): Promise<void> {
   if (!interaction.guild) throw new Error("Submission must be created inside a guild");
-  if (!config.SUBMISSION_CATEGORY_ID) throw new Error("SUBMISSION_CATEGORY_ID is not configured");
-
   const challenge = await findChallengeForSubmission(challengeId);
   if (!challenge || challenge.status !== "ACTIVE" || challenge.deletedAt) {
     throw new Error("Challenge is not active");
   }
   if (isDeadlinePassed(challenge.deadline)) throw new Error("Challenge deadline has passed");
+  if (!challenge.guildConfig.submissionCategoryId) throw new Error("Submission category is not configured");
 
   const lockKey = `${challengeId}:${interaction.user.id}`;
   await withCreationLock(lockKey, async () => {
@@ -65,7 +63,7 @@ export async function createSubmissionChannel(
     const channel = await guild.channels.create({
       name: `submit-${challengeId.slice(0, 8)}-${interaction.user.username}`.toLowerCase().slice(0, 100),
       type: ChannelType.GuildText,
-      parent: config.SUBMISSION_CATEGORY_ID,
+      parent: challenge.guildConfig.submissionCategoryId,
       permissionOverwrites: [
         {
           id: guild.roles.everyone.id,
@@ -81,9 +79,9 @@ export async function createSubmissionChannel(
             PermissionFlagsBits.EmbedLinks,
           ],
         },
-        ...(config.ADMIN_ROLE_ID
+        ...(challenge.guildConfig.adminRoleId
           ? [{
-              id: config.ADMIN_ROLE_ID,
+              id: challenge.guildConfig.adminRoleId,
               allow: [
                 PermissionFlagsBits.ViewChannel,
                 PermissionFlagsBits.SendMessages,
