@@ -289,6 +289,61 @@ export async function clearSubmissionChannel(submissionId: string) {
   });
 }
 
+export async function findSubmissionForCompletion(submissionId: string) {
+  return prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: { challenge: true },
+  });
+}
+
+export async function lockSubmission(submissionId: string, submittedAt = new Date()) {
+  const result = await prisma.submission.updateMany({
+    where: { id: submissionId, status: "OPEN", deletedAt: null },
+    data: { status: "SUBMITTED", submittedAt, lockedAt: submittedAt },
+  });
+
+  if (result.count !== 1) throw new Error("Submission is already completed or unavailable");
+  return prisma.submission.findUniqueOrThrow({ where: { id: submissionId } });
+}
+
+export async function createSubmissionSnapshot(input: {
+  submissionId: string;
+  capturedAt: Date;
+  messageCount: number;
+  metadata?: Prisma.InputJsonValue;
+  artifacts: Array<{
+    type: "TEXT" | "FILE" | "URL" | "GITHUB";
+    source: string;
+    content?: string;
+    sourceMessageId?: string;
+    filename?: string;
+    mimeType?: string;
+    sizeBytes?: number;
+  }>;
+}) {
+  return prisma.submissionSnapshot.create({
+    data: {
+      submissionId: input.submissionId,
+      capturedAt: input.capturedAt,
+      messageCount: input.messageCount,
+      metadata: input.metadata,
+      artifacts: {
+        create: input.artifacts.map((artifact) => ({
+          submissionId: input.submissionId,
+          type: artifact.type,
+          source: artifact.source,
+          content: artifact.content,
+          sourceMessageId: artifact.sourceMessageId,
+          filename: artifact.filename,
+          mimeType: artifact.mimeType,
+          sizeBytes: artifact.sizeBytes,
+        })),
+      },
+    },
+    include: { artifacts: true },
+  });
+}
+
 export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
   return prisma.submission.update({
     where: { id: input.submissionId, status: "OPEN" },

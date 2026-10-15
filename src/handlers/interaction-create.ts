@@ -5,6 +5,7 @@ import {
   approveChallengeFromInteraction,
   rejectChallengeFromInteraction,
 } from "../services/challenge-approval.service.js";
+import { completeSubmission } from "../services/submission-snapshot.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
@@ -43,7 +44,9 @@ export function registerInteractionHandler(client: Client): void {
       }
 
       if (parsed.action === "submission:complete") {
-        await interaction.reply({ content: "제출 완료 처리 골격입니다. 다음 단계에서 DB 저장·권한 잠금·채점을 연결합니다.", ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        const snapshot = await completeSubmission(interaction, parsed.resourceId);
+        await interaction.editReply(`제출이 확정되었습니다. ${snapshot.artifacts.length}개의 제출 자료를 저장했습니다.`);
       }
     } catch (error) {
       logger.error({ err: error }, "Interaction handling failed");
