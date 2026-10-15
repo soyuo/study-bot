@@ -36,7 +36,7 @@ export interface Submission {
   id: string;
   challengeId: string;
   userId: string;
-  channelId: string;
+  channelId: string | null;
   controlMessageId: string | null;
   status: SubmissionStatus;
 }

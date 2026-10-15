@@ -259,3 +259,39 @@ export async function setChallengePublicMessage(input: {
     return challenge;
   });
 }
+
+export async function findChallengeForSubmission(challengeId: string) {
+  return prisma.challenge.findUnique({
+    where: { id: challengeId },
+    include: { guildConfig: true },
+  });
+}
+
+export async function reserveSubmission(input: { challengeId: string; userId: string }) {
+  return prisma.submission.upsert({
+    where: { challengeId_userId: input },
+    create: { ...input, channelId: null, status: "OPEN" },
+    update: {},
+  });
+}
+
+export async function setSubmissionChannel(input: { submissionId: string; channelId: string }) {
+  return prisma.submission.update({
+    where: { id: input.submissionId, status: "OPEN" },
+    data: { channelId: input.channelId },
+  });
+}
+
+export async function clearSubmissionChannel(submissionId: string) {
+  return prisma.submission.update({
+    where: { id: submissionId, status: "OPEN" },
+    data: { channelId: null, controlMessageId: null },
+  });
+}
+
+export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
+  return prisma.submission.update({
+    where: { id: input.submissionId, status: "OPEN" },
+    data: { controlMessageId: input.controlMessageId },
+  });
+}

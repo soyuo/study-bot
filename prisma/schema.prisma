@@ -177,7 +177,7 @@ model Submission {
   id                String           @id @default(cuid())
   challengeId       String
   userId            String
-  channelId         String
+  channelId         String?
   controlMessageId  String?
   status            SubmissionStatus @default(OPEN)
   submittedAt       DateTime?
