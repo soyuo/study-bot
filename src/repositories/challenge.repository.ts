@@ -748,6 +748,53 @@ export async function claimNextSubmissionGradingJob(now = new Date()) {
   });
 }
 
+export async function recoverStaleSubmissionGradingJobs(
+  now = new Date(),
+  staleAfterMs = 5 * 60_000,
+) {
+  return prisma.$transaction(async (tx) => {
+    const staleBefore = new Date(now.getTime() - staleAfterMs);
+    const staleJobs = await tx.job.findMany({
+      where: {
+        type: { in: ["SUBMISSION_GRADING", "SUBMISSION_REGRADING"] },
+        status: "RUNNING",
+        startedAt: { not: null, lt: staleBefore },
+      },
+    });
+    for (const job of staleJobs) {
+      const exhausted = job.attempt >= job.maxAttempts;
+      await tx.job.update({
+        where: { id: job.id },
+        data: {
+          status: exhausted ? "FAILED" : "PENDING",
+          availableAt: now,
+          startedAt: null,
+          finishedAt: exhausted ? now : null,
+          lastError: `Recovered stale grading job after ${staleAfterMs}ms`,
+        },
+      });
+      if (exhausted && job.submissionId) {
+        await tx.submission.updateMany({
+          where: { id: job.submissionId, status: "GRADING" },
+          data: { status: "GRADING_FAILED" },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          guildConfigId: job.guildConfigId,
+          action: exhausted ? "STALE_GRADING_JOB_FAILED" : "STALE_GRADING_JOB_REQUEUED",
+          entityType: "Job",
+          entityId: job.id,
+          challengeId: job.challengeId,
+          submissionId: job.submissionId,
+          metadata: { attempt: job.attempt, maxAttempts: job.maxAttempts, staleAfterMs },
+        },
+      });
+    }
+    return { recovered: staleJobs.length, exhausted: staleJobs.filter((job) => job.attempt >= job.maxAttempts).length };
+  });
+}
+
 export async function findSubmissionGradingSnapshot(input: {
   submissionId: string;
   snapshotId: string;

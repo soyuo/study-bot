@@ -3,6 +3,7 @@ import {
   completeSubmissionGrading,
   failSubmissionGrading,
   findSubmissionGradingSnapshot,
+  recoverStaleSubmissionGradingJobs,
 } from "../repositories/challenge.repository.js";
 import {
   GeminiChallengeGrader,
@@ -135,6 +136,7 @@ export function startGeminiSubmissionGradingWorker(
     if (running) return;
     running = true;
     try {
+      await recoverStaleSubmissionGradingJobs();
       await processNextSubmissionGradingJob(
         grader,
         modelName,
