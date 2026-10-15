@@ -34,11 +34,21 @@ export async function runDeadlineSweep(client: Client, now = new Date()) {
 }
 
 export function startDeadlineSweep(client: Client, intervalMs = 60_000) {
+  let running = false;
   const timer = setInterval(() => {
+    if (running) return;
+    running = true;
     runDeadlineSweep(client).catch((error) => {
       logger.error({ err: error }, "Deadline sweep failed");
+    }).finally(() => {
+      running = false;
     });
   }, intervalMs);
   timer.unref?.();
-  return timer;
+  return async () => {
+    clearInterval(timer);
+    while (running) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  };
 }

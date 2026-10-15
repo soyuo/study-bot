@@ -154,5 +154,10 @@ export function startGeminiSubmissionGradingWorker(
   void tick();
   const timer = setInterval(() => void tick(), options.intervalMs ?? 2_000);
   timer.unref?.();
-  return timer;
+  return async () => {
+    clearInterval(timer);
+    while (running) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  };
 }
