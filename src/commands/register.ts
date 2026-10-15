@@ -77,8 +77,12 @@ export async function registerApplicationCommands(client: Client) {
     .addStringOption((option) =>
       option.setName("submission_id").setDescription("삭제할 Submission ID").setRequired(true),
     );
+  const health = new SlashCommandBuilder()
+    .setName("health")
+    .setDescription("봇과 데이터베이스의 운영 상태를 확인합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
   await rest.put(route, {
-    body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON(), challengeDelete.toJSON(), audit.toJSON(), submissionDelete.toJSON()],
+    body: [command.toJSON(), archiveRetry.toJSON(), guildConfig.toJSON(), submission.toJSON(), challengeDelete.toJSON(), audit.toJSON(), submissionDelete.toJSON(), health.toJSON()],
   });
   return client.user?.id;
 }

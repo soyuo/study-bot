@@ -14,11 +14,18 @@ import { deleteChallengeFromInteraction } from "../services/challenge-deletion.s
 import { getAuditLogEmbed } from "../services/audit-query.service.js";
 import { deleteSubmissionFromInteraction } from "../services/submission-deletion.service.js";
 import { logger } from "../logger.js";
+import { getHealthEmbed } from "../services/health.service.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "health") {
+          await interaction.deferReply({ ephemeral: true });
+          const embed = await getHealthEmbed(interaction, client);
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
         if (interaction.commandName === "submission-delete") {
           await interaction.deferReply({ ephemeral: true });
           const submissionId = interaction.options.getString("submission_id", true);
