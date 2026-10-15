@@ -2,7 +2,7 @@ import { EmbedBuilder, PermissionFlagsBits, type ChatInputCommandInteraction, ty
 import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../db/prisma.js";
 
-function formatUptime(seconds: number): string {
+export function formatUptime(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   const days = Math.floor(total / 86_400);
   const hours = Math.floor((total % 86_400) / 3_600);
