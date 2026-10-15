@@ -1,7 +1,10 @@
 import "dotenv/config";
 import { z } from "zod";
 
-const optionalId = z.string().trim().min(1).optional();
+const optionalId = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().trim().min(1).optional(),
+);
 
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().trim().min(1),
