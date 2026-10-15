@@ -19,14 +19,22 @@ function toStringArray(value: unknown): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
 }
 
+export function shouldProcessChallengeMessage(
+  message: Message,
+  guildConfig: { challengeChannelId: string | null; adminRoleId: string | null },
+): boolean {
+  if (message.author.bot || !message.guild) return false;
+  if (!guildConfig.challengeChannelId || message.channelId !== guildConfig.challengeChannelId) return false;
+  if (!message.content.trim() && message.attachments.size === 0) return false;
+  return isChallengeAdmin(message, guildConfig.adminRoleId);
+}
+
 export function registerMessageHandler(client: Client): void {
   client.on(Events.MessageCreate, async (message: Message) => {
     try {
       if (message.author.bot || !message.guild) return;
       const guildConfig = await findGuildConfigByGuildId(message.guild.id);
-      if (!guildConfig?.challengeChannelId || message.channelId !== guildConfig.challengeChannelId) return;
-      if (!message.content.trim() && message.attachments.size === 0) return;
-      if (!isChallengeAdmin(message, guildConfig.adminRoleId)) return;
+      if (!guildConfig || !shouldProcessChallengeMessage(message, guildConfig)) return;
       if (!config.GEMINI_API_KEY) {
         logger.error({ guildId: message.guild.id }, "Cannot parse challenge: GEMINI_API_KEY is not configured");
         return;

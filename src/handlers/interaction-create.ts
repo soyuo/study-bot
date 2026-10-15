@@ -16,9 +16,31 @@ import { deleteSubmissionFromInteraction } from "../services/submission-deletion
 import { logger } from "../logger.js";
 import { getHealthEmbed } from "../services/health.service.js";
 
+export function resolveInteractionRoute(input: {
+  kind: "chat" | "button" | "other";
+  commandName?: string;
+  customId?: string;
+}): { kind: "chat"; commandName: string } | { kind: "button"; action: string; resourceId: string } | null {
+  if (input.kind === "chat" && input.commandName) {
+    return { kind: "chat", commandName: input.commandName };
+  }
+  if (input.kind === "button" && input.customId) {
+    const parsed = parseCustomId(input.customId);
+    return parsed ? { kind: "button", ...parsed } : null;
+  }
+  return null;
+}
+
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
+      const route = resolveInteractionRoute({
+        kind: interaction.isChatInputCommand() ? "chat" : interaction.isButton() ? "button" : "other",
+        ...(interaction.isChatInputCommand() ? { commandName: interaction.commandName } : {}),
+        ...(interaction.isButton() ? { customId: interaction.customId } : {}),
+      });
+      if (!route) return;
+
       if (interaction.isChatInputCommand()) {
         if (interaction.commandName === "health") {
           await interaction.deferReply({ ephemeral: true });
@@ -78,9 +100,8 @@ export function registerInteractionHandler(client: Client): void {
         await interaction.editReply(`재채점 작업이 등록되었습니다. Job ID: ${result.jobId}`);
         return;
       }
-      if (!interaction.isButton()) return;
-      const parsed = parseCustomId(interaction.customId);
-      if (!parsed) return;
+      if (!interaction.isButton() || route.kind !== "button") return;
+      const parsed = route;
 
       if (parsed.action === "challenge:submit") {
         await interaction.deferReply({ ephemeral: true });
