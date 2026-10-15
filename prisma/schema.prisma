@@ -101,6 +101,8 @@ model Challenge {
   authorId            String
   sourceChannelId     String
   sourceMessageId     String
+  sourceContent       String?
+  sourceAttachments   Json?
   previewMessageId    String?
   previewUserId       String?
   publicChannelId     String?

@@ -1,6 +1,22 @@
 import { EmbedBuilder } from "discord.js";
 import type { Challenge } from "../types/challenge.js";
 import { customIds } from "../commands/ids.js";
+import { createDraftChallenge } from "../repositories/challenge.repository.js";
+import {
+  challengeRegistrationInputSchema,
+  parsedChallengeSchema,
+  type ChallengeRegistrationInput,
+  type ParsedChallenge,
+} from "../validators/challenge.schema.js";
+
+export async function createChallengeDraft(input: {
+  registration: ChallengeRegistrationInput;
+  parsed: ParsedChallenge;
+}) {
+  const registration = challengeRegistrationInputSchema.parse(input.registration);
+  const parsed = parsedChallengeSchema.parse(input.parsed);
+  return createDraftChallenge({ registration, parsed });
+}
 
 export function buildChallengeEmbed(challenge: Challenge): EmbedBuilder {
   const embed = new EmbedBuilder()
