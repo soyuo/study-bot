@@ -20,9 +20,18 @@ export function formatDiscordTimestamp(date: Date | null): string {
 }
 
 export function formatSystemDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("ko-KR", {
+  const parts = new Intl.DateTimeFormat("ko-KR", {
     timeZone: SYSTEM_TIME_ZONE,
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
+    year: "2-digit",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const dayPeriod = values.dayPeriod === "PM" || values.dayPeriod === "오후" ? "오후" : "오전";
+
+  return `${values.year}. ${values.month}. ${values.day}. ${dayPeriod} ${values.hour}:${values.minute}`;
 }
