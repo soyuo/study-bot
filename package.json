@@ -14,6 +14,9 @@
     "db:validate": "prisma validate",
     "db:check": "tsx src/scripts/check-database.ts",
     "config:check": "tsx src/scripts/check-config.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "db:logs": "docker compose logs -f postgres",
     "db:migrate": "prisma migrate dev --name init",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status"
