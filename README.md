@@ -64,6 +64,8 @@ npm run test:integration
 - [SPEC.md](./SPEC.md): 전체 요구사항과 설계 명세
 - [OPERATIONS.md](./OPERATIONS.md): DB 기동, 마이그레이션, 배포 전 점검, 장애 대응
 - [.env.example](./.env.example): 환경 변수 템플릿
+- [deployspec.yml](./deployspec.yml): GSM SV lifecycle 배포 정의
+- [ecosystem.config.cjs](./ecosystem.config.cjs): GSM SV Ubuntu/PM2 실행 설정
 
 ## 운영 주의사항
 

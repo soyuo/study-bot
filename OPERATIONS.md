@@ -95,3 +95,15 @@ npm run start
 - Archive 실패는 `/archive-retry`로 재시도한다.
 - 자동 채점 실패는 Job 재시도 정책에 따라 처리되며, 관리자 재채점은 `/regrade`로 실행한다.
 - DB 마이그레이션 전에는 PostgreSQL과 Artifact 저장소를 백업한다.
+
+## 7. GSM SV 배포
+
+이 저장소는 GSM SV의 Ubuntu lifecycle 배포 구조에 맞춰 다음 파일을 제공한다.
+
+- `deployspec.yml`: Stop → BeforeInstall → AfterInstall → Start → ValidateService 순서
+- `scripts/*.sh`: 운영 환경 변수 보존, Prisma migration, build, PM2 재시작, 서비스 검증
+- `ecosystem.config.cjs`: `/home/ubuntu/study-bot`에서 `dist/index.js`를 PM2로 실행
+
+GSM SV의 배포 대상 서버에는 Node.js 20+, npm, PM2가 설치되어 있어야 한다. GSM SV 환경 변수에 `.env.example`의 값을 등록하고, 특히 `DATABASE_URL`, `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`를 반드시 설정한다.
+
+배포 lifecycle의 `AfterInstall`은 운영 `.env`를 복원한 뒤 `npm ci`, Prisma Client 생성, `prisma migrate deploy`, TypeScript build를 실행한다. Artifact는 `/home/ubuntu/study-bot-data/artifacts`에 백업해 배포 교체 후에도 복원한다.
