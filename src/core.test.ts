@@ -3,7 +3,7 @@ import test from "node:test";
 import { customIds, parseCustomId } from "./commands/ids.js";
 import { formatDiscordTimestamp, isDeadlinePassed, resolveDeadline } from "./utils/deadline.js";
 import { validateGradingResponse } from "./validators/grading.schema.js";
-import { parseGitHubUrl } from "./services/github.service.js";
+import { isSupportedSourcePath, parseGitHubUrl } from "./services/github.service.js";
 
 test("relative deadline resolves to exactly 72 hours", () => {
   const base = new Date("2026-01-01T00:00:00.000Z");
@@ -34,6 +34,8 @@ test("GitHub submission URLs are parsed into repository coordinates", () => {
     ref: "main",
   });
   assert.equal(parseGitHubUrl("https://gitlab.com/example/project"), null);
+  assert.equal(isSupportedSourcePath("src/index.ts"), true);
+  assert.equal(isSupportedSourcePath("node_modules/package/index.js"), false);
 });
 
 test("grading result is validated against the frozen rubric", () => {
