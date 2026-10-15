@@ -9,7 +9,7 @@ import { config } from "../config.js";
 import { logger } from "../logger.js";
 import { withRetry } from "../utils/retry.js";
 
-export async function registerApplicationCommands(client: Client) {
+export function buildApplicationCommands() {
   const command = new SlashCommandBuilder()
     .setName("regrade")
     .setDescription("제출물을 관리자 권한으로 다시 채점합니다.")
@@ -21,10 +21,6 @@ export async function registerApplicationCommands(client: Client) {
         .setRequired(true),
     );
 
-  const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-  const route = config.DISCORD_GUILD_ID
-    ? Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID)
-    : Routes.applicationCommands(config.DISCORD_CLIENT_ID);
   const archiveRetry = new SlashCommandBuilder()
     .setName("archive-retry")
     .setDescription("실패한 제출 채널 Archive를 다시 실행합니다.")
@@ -83,7 +79,7 @@ export async function registerApplicationCommands(client: Client) {
     .setName("health")
     .setDescription("봇과 데이터베이스의 운영 상태를 확인합니다.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
-  const body = [
+  return [
     command.toJSON(),
     archiveRetry.toJSON(),
     guildConfig.toJSON(),
@@ -93,6 +89,14 @@ export async function registerApplicationCommands(client: Client) {
     submissionDelete.toJSON(),
     health.toJSON(),
   ];
+}
+
+export async function registerApplicationCommands(client: Client) {
+  const body = buildApplicationCommands();
+  const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
+  const route = config.DISCORD_GUILD_ID
+    ? Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID)
+    : Routes.applicationCommands(config.DISCORD_CLIENT_ID);
   await withRetry(() => rest.put(route, { body }), {
     maxAttempts: 3,
     delayMs: 1_000,
