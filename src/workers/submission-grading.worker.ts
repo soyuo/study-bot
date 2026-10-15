@@ -8,6 +8,9 @@ import {
   GeminiChallengeGrader,
   type ChallengeGrader,
 } from "../services/grading.service.js";
+import { publishGradingResult } from "../services/grading-result.service.js";
+import { logger } from "../logger.js";
+import type { Client } from "discord.js";
 import { validateGradingResponse } from "../validators/grading.schema.js";
 
 type GradingJob = NonNullable<Awaited<ReturnType<typeof claimNextSubmissionGradingJob>>>;
@@ -27,10 +30,12 @@ function snapshotIdFromJob(job: GradingJob): string {
 export async function processNextSubmissionGradingJob(
   grader: ChallengeGrader,
   modelName: string,
+  onCompleted?: (gradeId: string) => Promise<void>,
 ) {
   const job = await claimNextSubmissionGradingJob();
-  if (!job) return false;
+  if (!job) return { processed: false };
 
+  let gradeId: string | undefined;
   try {
     if (!job.submission) throw new Error("Grading job submission is missing");
     const snapshotId = snapshotIdFromJob(job);
@@ -70,7 +75,7 @@ export async function processNextSubmissionGradingJob(
         ? "PASSED"
         : "FAILED";
 
-    await completeSubmissionGrading({
+    const grade = await completeSubmissionGrading({
       jobId: job.id,
       submissionId: job.submission.id,
       snapshotId,
@@ -88,7 +93,7 @@ export async function processNextSubmissionGradingJob(
         evidence: criterion.evidence,
       })),
     });
-    return true;
+    gradeId = grade.id;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown grading error";
     await failSubmissionGrading({
@@ -97,8 +102,16 @@ export async function processNextSubmissionGradingJob(
       errorMessage: message,
       retryDelayMs: Math.min(60_000, 1_000 * 2 ** Math.max(0, job.attempt - 1)),
     });
-    return true;
+    return { processed: true };
   }
+  if (gradeId && onCompleted) {
+    try {
+      await onCompleted(gradeId);
+    } catch (error) {
+      logger.error({ err: error, gradeId }, "Grading result publication failed");
+    }
+  }
+  return { processed: true, gradeId };
 }
 
 export function createGeminiSubmissionGradingWorker(options: {
@@ -108,4 +121,36 @@ export function createGeminiSubmissionGradingWorker(options: {
   const modelName = options.model ?? "gemini-2.5-flash";
   const grader = new GeminiChallengeGrader(options);
   return () => processNextSubmissionGradingJob(grader, modelName);
+}
+
+export function startGeminiSubmissionGradingWorker(
+  client: Client,
+  options: { apiKey: string; model?: string; intervalMs?: number },
+) {
+  const modelName = options.model ?? "gemini-2.5-flash";
+  const grader = new GeminiChallengeGrader(options);
+  let running = false;
+
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await processNextSubmissionGradingJob(
+        grader,
+        modelName,
+        async (gradeId) => {
+          await publishGradingResult(client, gradeId);
+        },
+      );
+    } catch (error) {
+      logger.error({ err: error }, "Submission grading worker failed");
+    } finally {
+      running = false;
+    }
+  };
+
+  void tick();
+  const timer = setInterval(() => void tick(), options.intervalMs ?? 2_000);
+  timer.unref?.();
+  return timer;
 }

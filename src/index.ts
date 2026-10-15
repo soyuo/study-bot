@@ -9,6 +9,7 @@ import { registerInteractionHandler } from "./handlers/interaction-create.js";
 import { registerMessageHandler } from "./handlers/message-create.js";
 import { registerApplicationCommands } from "./commands/register.js";
 import { startDeadlineSweep } from "./services/deadline.service.js";
+import { startGeminiSubmissionGradingWorker } from "./workers/submission-grading.worker.js";
 
 const client = new Client({
   intents: [
@@ -25,6 +26,14 @@ client.once("ready", (readyClient) => {
     logger.error({ err: error }, "Application command registration failed");
   });
   startDeadlineSweep(readyClient);
+  if (config.GEMINI_API_KEY) {
+    startGeminiSubmissionGradingWorker(readyClient, {
+      apiKey: config.GEMINI_API_KEY,
+      model: config.GEMINI_MODEL,
+    });
+  } else {
+    logger.warn("Submission grading worker is disabled: GEMINI_API_KEY is not configured");
+  }
 });
 
 client.on("error", (error) => logger.error({ err: error }, "Discord client error"));
