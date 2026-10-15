@@ -45,8 +45,10 @@ export function registerInteractionHandler(client: Client): void {
 
       if (parsed.action === "submission:complete") {
         await interaction.deferReply({ ephemeral: true });
-        const snapshot = await completeSubmission(interaction, parsed.resourceId);
-        await interaction.editReply(`제출이 확정되었습니다. ${snapshot.artifacts.length}개의 제출 자료를 저장했습니다.`);
+        const result = await completeSubmission(interaction, parsed.resourceId);
+        await interaction.editReply(
+          `제출이 확정되었습니다. ${result.snapshot.artifacts.length}개의 제출 자료를 저장했고 채점을 대기 중입니다.`,
+        );
       }
     } catch (error) {
       logger.error({ err: error }, "Interaction handling failed");

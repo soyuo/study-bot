@@ -344,6 +344,55 @@ export async function createSubmissionSnapshot(input: {
   });
 }
 
+export async function queueSubmissionGrading(input: {
+  submissionId: string;
+  snapshotId: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const submission = await tx.submission.findUnique({
+      where: { id: input.submissionId },
+      include: { challenge: true },
+    });
+    if (!submission) throw new Error("Submission not found");
+
+    const transitioned = await tx.submission.updateMany({
+      where: { id: input.submissionId, status: "SUBMITTED", deletedAt: null },
+      data: { status: "GRADING" },
+    });
+    if (transitioned.count !== 1) throw new Error("Submission is not ready for grading");
+
+    const dedupeKey = `SUBMISSION_GRADING:${input.submissionId}:${input.snapshotId}`;
+    const job = await tx.job.upsert({
+      where: { dedupeKey },
+      create: {
+        guildConfigId: submission.challenge.guildConfigId,
+        challengeId: submission.challengeId,
+        submissionId: submission.id,
+        type: "SUBMISSION_GRADING",
+        status: "PENDING",
+        dedupeKey,
+        payload: { snapshotId: input.snapshotId },
+      },
+      update: {},
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: submission.challenge.guildConfigId,
+        actorId: submission.userId,
+        action: "SUBMISSION_GRADING_QUEUED",
+        entityType: "Submission",
+        entityId: submission.id,
+        challengeId: submission.challengeId,
+        submissionId: submission.id,
+        metadata: { snapshotId: input.snapshotId, jobId: job.id, dedupeKey },
+      },
+    });
+
+    return { submissionId: submission.id, jobId: job.id, snapshotId: input.snapshotId };
+  });
+}
+
 export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
   return prisma.submission.update({
     where: { id: input.submissionId, status: "OPEN" },

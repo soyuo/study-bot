@@ -8,6 +8,7 @@ import {
   createSubmissionSnapshot,
   findSubmissionForCompletion,
   lockSubmission,
+  queueSubmissionGrading,
 } from "../repositories/challenge.repository.js";
 
 const urlPattern = /https?:\/\/[^\s<>]+/g;
@@ -113,16 +114,23 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
     components: [],
   });
 
-  const snapshot = await collectChannelArtifacts(channel, submission.controlMessageId);
-  return createSubmissionSnapshot({
+  const collected = await collectChannelArtifacts(channel, submission.controlMessageId);
+  const snapshot = await createSubmissionSnapshot({
     submissionId,
     capturedAt: submittedAt,
-    messageCount: snapshot.messages.length,
+    messageCount: collected.messages.length,
     metadata: {
       channelId: channel.id,
       controlMessageId: submission.controlMessageId,
       capturedAt: submittedAt.toISOString(),
     },
-    artifacts: snapshot.artifacts,
+    artifacts: collected.artifacts,
   });
+
+  const grading = await queueSubmissionGrading({
+    submissionId,
+    snapshotId: snapshot.id,
+  });
+
+  return { snapshot, grading };
 }
