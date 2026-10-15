@@ -37,3 +37,20 @@ test("registers all application commands through the configured REST route", asy
     ],
   );
 });
+
+test("retries transient application command registration failures", async () => {
+  let attempts = 0;
+  const restClient = {
+    put: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("temporary Discord API failure");
+      return [];
+    },
+  } as Pick<REST, "put">;
+  const client = { user: { id: "bot-user-id" } } as Client;
+
+  const result = await registerApplicationCommands(client, restClient);
+
+  assert.equal(result, "bot-user-id");
+  assert.equal(attempts, 2);
+});
