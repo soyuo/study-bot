@@ -549,6 +549,38 @@ export async function failSubmissionGrading(input: {
   });
 }
 
+export async function findGradeForResult(gradeId: string) {
+  return prisma.grade.findUnique({
+    where: { id: gradeId },
+    include: {
+      submission: { include: { challenge: true } },
+      results: { include: { criterion: true }, orderBy: { criterion: { code: "asc" } } },
+    },
+  });
+}
+
+export async function recordGradeResultPublished(input: {
+  gradeId: string;
+  messageId: string;
+  channelId: string;
+}) {
+  const grade = await prisma.grade.findUniqueOrThrow({
+    where: { id: input.gradeId },
+    include: { submission: { include: { challenge: true } } },
+  });
+
+  return prisma.auditLog.create({
+    data: {
+      guildConfigId: grade.submission.challenge.guildConfigId,
+      action: "GRADE_RESULT_PUBLISHED",
+      entityType: "Grade",
+      entityId: grade.id,
+      submissionId: grade.submissionId,
+      metadata: { messageId: input.messageId, channelId: input.channelId },
+    },
+  });
+}
+
 export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
   return prisma.submission.update({
     where: { id: input.submissionId, status: "OPEN" },
