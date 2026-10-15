@@ -21,17 +21,17 @@ function toStringArray(value: unknown): string[] {
 
 export function registerMessageHandler(client: Client): void {
   client.on(Events.MessageCreate, async (message: Message) => {
-    if (message.author.bot || !message.guild) return;
-    const guildConfig = await findGuildConfigByGuildId(message.guild.id);
-    if (!guildConfig?.challengeChannelId || message.channelId !== guildConfig.challengeChannelId) return;
-    if (!message.content.trim() && message.attachments.size === 0) return;
-    if (!isChallengeAdmin(message, guildConfig.adminRoleId)) return;
-    if (!config.GEMINI_API_KEY) {
-      logger.error({ guildId: message.guild.id }, "Cannot parse challenge: GEMINI_API_KEY is not configured");
-      return;
-    }
-
     try {
+      if (message.author.bot || !message.guild) return;
+      const guildConfig = await findGuildConfigByGuildId(message.guild.id);
+      if (!guildConfig?.challengeChannelId || message.channelId !== guildConfig.challengeChannelId) return;
+      if (!message.content.trim() && message.attachments.size === 0) return;
+      if (!isChallengeAdmin(message, guildConfig.adminRoleId)) return;
+      if (!config.GEMINI_API_KEY) {
+        logger.error({ guildId: message.guild.id }, "Cannot parse challenge: GEMINI_API_KEY is not configured");
+        return;
+      }
+
       const registration = {
         guildId: message.guild.id,
         authorId: message.author.id,
@@ -83,7 +83,7 @@ export function registerMessageHandler(client: Client): void {
         "Challenge draft created and preview sent",
       );
     } catch (error) {
-      logger.error({ err: error, messageId: message.id, guildId: message.guild.id }, "Challenge registration failed");
+      logger.error({ err: error, messageId: message.id, guildId: message.guild?.id }, "Challenge registration failed");
     }
   });
 }
