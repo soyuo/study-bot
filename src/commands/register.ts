@@ -91,9 +91,9 @@ export function buildApplicationCommands() {
   ];
 }
 
-export async function registerApplicationCommands(client: Client) {
+export async function registerApplicationCommands(client: Client, restClient?: Pick<REST, "put">) {
   const body = buildApplicationCommands();
-  const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
+  const rest = restClient ?? new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
   const route = config.DISCORD_GUILD_ID
     ? Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID)
     : Routes.applicationCommands(config.DISCORD_CLIENT_ID);
