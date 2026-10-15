@@ -10,7 +10,7 @@ import { registerMessageHandler } from "./handlers/message-create.js";
 import { registerApplicationCommands } from "./commands/register.js";
 import { startDeadlineSweep } from "./services/deadline.service.js";
 import { startGeminiSubmissionGradingWorker } from "./workers/submission-grading.worker.js";
-import { disconnectDatabase } from "./db/prisma.js";
+import { connectDatabase, disconnectDatabase } from "./db/prisma.js";
 
 const client = new Client({
   intents: [
@@ -65,4 +65,14 @@ registerInteractionHandler(client);
 process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
-await client.login(config.DISCORD_TOKEN);
+try {
+  await connectDatabase();
+  logger.info("Database connection verified");
+  await client.login(config.DISCORD_TOKEN);
+} catch (error) {
+  logger.fatal({ err: error }, "Study bot startup failed");
+  await disconnectDatabase().catch((disconnectError) => {
+    logger.error({ err: disconnectError }, "Database disconnect after startup failure failed");
+  });
+  process.exitCode = 1;
+}
