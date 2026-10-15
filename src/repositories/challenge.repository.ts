@@ -393,11 +393,70 @@ export async function queueSubmissionGrading(input: {
   });
 }
 
+export async function queueSubmissionRegrading(input: {
+  submissionId: string;
+  actorId: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const submission = await tx.submission.findUnique({
+      where: { id: input.submissionId },
+      include: {
+        challenge: true,
+        snapshots: { orderBy: { capturedAt: "desc" }, take: 1 },
+      },
+    });
+    if (!submission || submission.deletedAt) throw new Error("Submission not found");
+    if (!["GRADED", "GRADING_FAILED"].includes(submission.status)) {
+      throw new Error("Only graded or failed submissions can be regraded");
+    }
+    const snapshot = submission.snapshots[0];
+    if (!snapshot) throw new Error("Submission snapshot not found");
+
+    const transitioned = await tx.submission.updateMany({
+      where: {
+        id: input.submissionId,
+        status: { in: ["GRADED", "GRADING_FAILED"] },
+        deletedAt: null,
+      },
+      data: { status: "GRADING" },
+    });
+    if (transitioned.count !== 1) throw new Error("Submission is already being regraded");
+
+    const dedupeKey = `SUBMISSION_REGRADING:${submission.id}:${snapshot.id}:${Date.now()}`;
+    const job = await tx.job.create({
+      data: {
+        guildConfigId: submission.challenge.guildConfigId,
+        challengeId: submission.challengeId,
+        submissionId: submission.id,
+        type: "SUBMISSION_REGRADING",
+        status: "PENDING",
+        dedupeKey,
+        payload: { snapshotId: snapshot.id, actorId: input.actorId },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: submission.challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "SUBMISSION_REGRADING_QUEUED",
+        entityType: "Submission",
+        entityId: submission.id,
+        challengeId: submission.challengeId,
+        submissionId: submission.id,
+        metadata: { jobId: job.id, snapshotId: snapshot.id, dedupeKey },
+      },
+    });
+
+    return { jobId: job.id, submissionId: submission.id, snapshotId: snapshot.id };
+  });
+}
+
 export async function claimNextSubmissionGradingJob(now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const candidate = await tx.job.findFirst({
       where: {
-        type: "SUBMISSION_GRADING",
+        type: { in: ["SUBMISSION_GRADING", "SUBMISSION_REGRADING"] },
         status: "PENDING",
         availableAt: { lte: now },
       },
@@ -456,13 +515,17 @@ export async function completeSubmissionGrading(input: {
   return prisma.$transaction(async (tx) => {
     const job = await tx.job.findUniqueOrThrow({ where: { id: input.jobId } });
     if (job.status !== "RUNNING") throw new Error("Grading job is not running");
+    const submission = await tx.submission.findUniqueOrThrow({
+      where: { id: input.submissionId },
+      include: { grades: { orderBy: { attempt: "desc" }, take: 1 } },
+    });
 
     const grade = await tx.grade.create({
       data: {
         submissionId: input.submissionId,
         rubricVersionId: input.rubricVersionId,
         snapshotId: input.snapshotId,
-        attempt: job.attempt,
+        attempt: (submission.grades[0]?.attempt ?? 0) + 1,
         totalScore: input.totalScore,
         maxScore: input.maxScore,
         status: input.status,

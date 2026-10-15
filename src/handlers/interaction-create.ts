@@ -6,11 +6,20 @@ import {
   rejectChallengeFromInteraction,
 } from "../services/challenge-approval.service.js";
 import { completeSubmission } from "../services/submission-snapshot.service.js";
+import { regradeSubmissionFromInteraction } from "../services/regrading.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
+      if (interaction.isChatInputCommand()) {
+        if (interaction.commandName !== "regrade") return;
+        await interaction.deferReply({ ephemeral: true });
+        const submissionId = interaction.options.getString("submission_id", true);
+        const result = await regradeSubmissionFromInteraction(interaction, submissionId);
+        await interaction.editReply(`재채점 작업이 등록되었습니다. Job ID: ${result.jobId}`);
+        return;
+      }
       if (!interaction.isButton()) return;
       const parsed = parseCustomId(interaction.customId);
       if (!parsed) return;

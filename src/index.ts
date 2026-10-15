@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { registerInteractionHandler } from "./handlers/interaction-create.js";
 import { registerMessageHandler } from "./handlers/message-create.js";
+import { registerApplicationCommands } from "./commands/register.js";
 
 const client = new Client({
   intents: [
@@ -19,6 +20,9 @@ const client = new Client({
 
 client.once("ready", (readyClient) => {
   logger.info({ user: readyClient.user.tag }, "Study bot is ready");
+  registerApplicationCommands(readyClient).catch((error) => {
+    logger.error({ err: error }, "Application command registration failed");
+  });
 });
 
 client.on("error", (error) => logger.error({ err: error }, "Discord client error"));
