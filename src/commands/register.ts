@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
+import { withRetry } from "../utils/retry.js";
 
 export async function registerApplicationCommands(client: Client) {
   const command = new SlashCommandBuilder()
@@ -92,16 +93,12 @@ export async function registerApplicationCommands(client: Client) {
     submissionDelete.toJSON(),
     health.toJSON(),
   ];
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      await rest.put(route, { body });
-      break;
-    } catch (error) {
-      if (attempt === maxAttempts) throw error;
-      logger.warn({ err: error, attempt, maxAttempts }, "Application command registration will be retried");
-      await new Promise((resolve) => setTimeout(resolve, 1_000 * 2 ** (attempt - 1)));
-    }
-  }
+  await withRetry(() => rest.put(route, { body }), {
+    maxAttempts: 3,
+    delayMs: 1_000,
+    onRetry: (error, attempt) => {
+      logger.warn({ err: error, attempt, maxAttempts: 3 }, "Application command registration will be retried");
+    },
+  });
   return client.user?.id;
 }
