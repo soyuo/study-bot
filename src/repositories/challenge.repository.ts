@@ -96,3 +96,36 @@ export async function createDraftChallenge(input: CreateDraftChallengeInput) {
     return challenge;
   });
 }
+
+export async function setChallengePreviewMessage(input: {
+  challengeId: string;
+  previewUserId: string;
+  previewMessageId: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const challenge = await tx.challenge.update({
+      where: { id: input.challengeId, status: "DRAFT" },
+      data: {
+        previewUserId: input.previewUserId,
+        previewMessageId: input.previewMessageId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: challenge.authorId,
+        action: "CHALLENGE_PREVIEW_SENT",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: {
+          previewUserId: input.previewUserId,
+          previewMessageId: input.previewMessageId,
+        },
+      },
+    });
+
+    return challenge;
+  });
+}
