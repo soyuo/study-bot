@@ -888,6 +888,21 @@ export async function findSubmissionInspection(submissionId: string) {
   });
 }
 
+export async function findAuditLogs(input: { guildConfigId: string; entityId: string; limit?: number }) {
+  return prisma.auditLog.findMany({
+    where: {
+      guildConfigId: input.guildConfigId,
+      OR: [
+        { entityId: input.entityId },
+        { challengeId: input.entityId },
+        { submissionId: input.entityId },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: input.limit ?? 20,
+  });
+}
+
 export async function setSubmissionControlMessage(input: { submissionId: string; controlMessageId: string }) {
   return prisma.submission.update({
     where: { id: input.submissionId, status: "OPEN" },

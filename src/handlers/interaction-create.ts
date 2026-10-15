@@ -11,12 +11,20 @@ import { retryArchivesFromInteraction } from "../services/archive-retry.service.
 import { updateGuildConfiguration } from "../services/configuration.service.js";
 import { getSubmissionQueryEmbed } from "../services/submission-query.service.js";
 import { deleteChallengeFromInteraction } from "../services/challenge-deletion.service.js";
+import { getAuditLogEmbed } from "../services/audit-query.service.js";
 import { logger } from "../logger.js";
 
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "audit") {
+          await interaction.deferReply({ ephemeral: true });
+          const entityId = interaction.options.getString("entity_id", true);
+          const embed = await getAuditLogEmbed(interaction, entityId);
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
         if (interaction.commandName === "challenge-delete") {
           await interaction.deferReply({ ephemeral: true });
           const challengeId = interaction.options.getString("challenge_id", true);
