@@ -67,6 +67,20 @@ npm run test:integration
 - [deployspec.yml](./deployspec.yml): GSM SV lifecycle 배포 정의
 - [ecosystem.config.cjs](./ecosystem.config.cjs): GSM SV Ubuntu/PM2 실행 설정
 
+## CI/CD
+
+`.github/workflows/ci-cd.yml`에서 CI와 CD를 관리합니다.
+
+- CI: PostgreSQL 서비스에서 migration, unit/integration test, typecheck, build, Prisma schema 검증
+- CD: `main` push에서만 실행
+- 보호 조건: CD job이 CI job을 `needs: ci`로 요구하므로 CI 실패 시 배포하지 않음
+- CD: GSM SV 배포 번들을 S3에 업로드하고 CodeDeploy deployment를 생성
+
+GitHub 저장소에는 다음 설정이 필요합니다.
+
+- Secret: `GSM_SV_AWS_ROLE_ARN`
+- Variables: `AWS_REGION`, `GSM_SV_DEPLOYMENT_BUCKET`, `GSM_SV_CODEDEPLOY_APPLICATION`, `GSM_SV_CODEDEPLOY_DEPLOYMENT_GROUP`
+
 ## 운영 주의사항
 
 - `.env`와 Discord Token을 커밋하지 않습니다.

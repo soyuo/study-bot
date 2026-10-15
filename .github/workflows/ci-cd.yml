@@ -1,0 +1,111 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: study-bot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: study_bot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d study_bot_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/study_bot_test?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/study_bot_test?schema=public
+      DISCORD_TOKEN: ci-test-token
+      DISCORD_CLIENT_ID: ci-test-client-id
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Apply database migrations
+        run: npm run db:migrate:deploy
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+  cd:
+    name: CD
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      DEPLOYMENT_BUCKET: ${{ vars.GSM_SV_DEPLOYMENT_BUCKET }}
+      CODEDEPLOY_APPLICATION: ${{ vars.GSM_SV_CODEDEPLOY_APPLICATION }}
+      CODEDEPLOY_DEPLOYMENT_GROUP: ${{ vars.GSM_SV_CODEDEPLOY_DEPLOYMENT_GROUP }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GSM_SV_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Package GSM SV deployment
+        run: |
+          zip -r "study-bot-${GITHUB_SHA}.zip" . \
+            -x ".git/*" "node_modules/*" "dist/*" "data/artifacts/*" ".env"
+
+      - name: Upload deployment bundle
+        run: aws s3 cp "study-bot-${GITHUB_SHA}.zip" "s3://${DEPLOYMENT_BUCKET}/study-bot/${GITHUB_SHA}.zip"
+
+      - name: Deploy to GSM SV
+        run: >-
+          aws deploy create-deployment
+          --application-name "${CODEDEPLOY_APPLICATION}"
+          --deployment-group-name "${CODEDEPLOY_DEPLOYMENT_GROUP}"
+          --deployment-config-name CodeDeployDefault.OneAtATime
+          --s3-location
+          bucket="${DEPLOYMENT_BUCKET}",key="study-bot/${GITHUB_SHA}.zip",bundleType=zip
+          --file-exists-behavior OVERWRITE
+          --description "study-bot ${GITHUB_SHA}"
