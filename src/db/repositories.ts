@@ -1,4 +1,4 @@
-import { Prisma, type ChallengeStatus, type JobType, type SubmissionStatus } from "@prisma/client";
+import { Prisma, type ChallengeStatus, type JobType, type SubmissionStatus } from "../generated/prisma/client.js";
 import { prisma } from "./prisma.js";
 
 export async function getOrCreateGuildConfig(guildId: string) {

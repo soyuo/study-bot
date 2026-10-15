@@ -1,5 +1,6 @@
 .codex
 node_modules/
 dist/
+src/generated/
 .env
 npm-debug.log*
