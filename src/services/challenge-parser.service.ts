@@ -5,6 +5,8 @@ import {
 } from "../validators/challenge.schema.js";
 import { GoogleGenAI } from "@google/genai";
 
+export const CHALLENGE_PARSER_TIMEOUT_MS = 90_000;
+
 export interface ChallengeParser {
   parse(input: ChallengeRegistrationInput): Promise<ParsedChallenge>;
 }
@@ -111,15 +113,27 @@ export class GeminiChallengeParser implements ChallengeParser {
     ].join("\n");
 
     try {
-      const response = await this.client.models.generateContent({
-        model: this.options.model ?? "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseJsonSchema: challengeResponseJsonSchema,
-        },
-      });
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const generation = this.client.models.generateContent({
+          model: this.options.model ?? "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            temperature: 0,
+            responseMimeType: "application/json",
+            responseJsonSchema: challengeResponseJsonSchema,
+          },
+        });
+        const timeout = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error(`Gemini challenge parsing timed out after ${CHALLENGE_PARSER_TIMEOUT_MS / 1_000}s`)),
+            CHALLENGE_PARSER_TIMEOUT_MS,
+          );
+        });
+        var response = await Promise.race([generation, timeout]);
+      } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+      }
 
       const text = response.text?.trim();
       if (!text) throw new Error("Gemini returned an empty response");
