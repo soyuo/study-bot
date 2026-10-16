@@ -8,6 +8,7 @@
 - 운영 환경에서는 PostgreSQL과 Artifact 저장소를 영속 볼륨으로 구성
 
 `.env`는 저장소에 커밋하지 않는다. 시작 전 `.env.example`을 복사하고 실제 값을 입력한다.
+`DISCORD_GUILD_ID`와 서버 설정 ID를 함께 지정하면 최초 기동 시 해당 서버의 DB 설정으로 한 번만 seed한다. 이미 DB 설정이 있으면 DB 값을 유지한다.
 
 ```bash
 cp .env.example .env

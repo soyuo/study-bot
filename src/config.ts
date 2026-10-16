@@ -12,6 +12,7 @@ export const envSchema = z.object({
   DISCORD_GUILD_ID: optionalId,
   CHALLENGE_CHANNEL_ID: optionalId,
   SUBMISSION_CATEGORY_ID: optionalId,
+  ARCHIVE_CATEGORY_ID: optionalId,
   ADMIN_ROLE_ID: optionalId,
   ADMIN_LOG_CHANNEL_ID: optionalId,
   GEMINI_API_KEY: optionalId,

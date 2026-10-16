@@ -4,7 +4,32 @@ import {
   type ChatInputCommandInteraction,
 } from "discord.js";
 import { config } from "../config.js";
-import { updateGuildConfig } from "../repositories/challenge.repository.js";
+import { findGuildConfigByGuildId, updateGuildConfig } from "../repositories/challenge.repository.js";
+
+export async function seedGuildConfigurationFromEnvironment() {
+  if (!config.DISCORD_GUILD_ID) return null;
+
+  const hasEnvironmentConfiguration = Boolean(
+    config.CHALLENGE_CHANNEL_ID ||
+      config.SUBMISSION_CATEGORY_ID ||
+      config.ARCHIVE_CATEGORY_ID ||
+      config.ADMIN_ROLE_ID ||
+      config.ADMIN_LOG_CHANNEL_ID,
+  );
+  if (!hasEnvironmentConfiguration) return null;
+
+  const existing = await findGuildConfigByGuildId(config.DISCORD_GUILD_ID);
+  if (existing) return existing;
+
+  return updateGuildConfig({
+    guildId: config.DISCORD_GUILD_ID,
+    ...(config.CHALLENGE_CHANNEL_ID ? { challengeChannelId: config.CHALLENGE_CHANNEL_ID } : {}),
+    ...(config.SUBMISSION_CATEGORY_ID ? { submissionCategoryId: config.SUBMISSION_CATEGORY_ID } : {}),
+    ...(config.ARCHIVE_CATEGORY_ID ? { archiveCategoryId: config.ARCHIVE_CATEGORY_ID } : {}),
+    ...(config.ADMIN_ROLE_ID ? { adminRoleId: config.ADMIN_ROLE_ID } : {}),
+    ...(config.ADMIN_LOG_CHANNEL_ID ? { adminLogChannelId: config.ADMIN_LOG_CHANNEL_ID } : {}),
+  });
+}
 
 export async function updateGuildConfiguration(interaction: ChatInputCommandInteraction) {
   if (!interaction.guild) throw new Error("Configuration must be changed in a guild");

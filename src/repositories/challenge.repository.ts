@@ -275,6 +275,7 @@ export async function updateGuildConfig(input: {
   submissionCategoryId?: string;
   archiveCategoryId?: string;
   adminRoleId?: string;
+  adminLogChannelId?: string;
 }) {
   return prisma.guildConfig.upsert({
     where: { guildId: input.guildId },
@@ -284,12 +285,14 @@ export async function updateGuildConfig(input: {
       submissionCategoryId: input.submissionCategoryId,
       archiveCategoryId: input.archiveCategoryId,
       adminRoleId: input.adminRoleId,
+      adminLogChannelId: input.adminLogChannelId,
     },
     update: {
       ...(input.challengeChannelId ? { challengeChannelId: input.challengeChannelId } : {}),
       ...(input.submissionCategoryId ? { submissionCategoryId: input.submissionCategoryId } : {}),
       ...(input.archiveCategoryId ? { archiveCategoryId: input.archiveCategoryId } : {}),
       ...(input.adminRoleId ? { adminRoleId: input.adminRoleId } : {}),
+      ...(input.adminLogChannelId ? { adminLogChannelId: input.adminLogChannelId } : {}),
     },
   });
 }

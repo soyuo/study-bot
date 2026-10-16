@@ -12,6 +12,7 @@ import { startDeadlineSweep } from "./services/deadline.service.js";
 import { startGeminiSubmissionGradingWorker } from "./workers/submission-grading.worker.js";
 import { connectDatabase, disconnectDatabase } from "./db/prisma.js";
 import { withRetry } from "./utils/retry.js";
+import { seedGuildConfigurationFromEnvironment } from "./services/configuration.service.js";
 
 const client = new Client({
   intents: [
@@ -105,6 +106,10 @@ try {
     },
   });
   logger.info("Database connection verified");
+  const seededGuildConfig = await seedGuildConfigurationFromEnvironment();
+  if (seededGuildConfig) {
+    logger.info({ guildId: seededGuildConfig.guildId }, "Guild configuration seeded from environment");
+  }
   await client.login(config.DISCORD_TOKEN);
 } catch (error) {
   logger.fatal({ err: error }, "Study bot startup failed");
