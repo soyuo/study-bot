@@ -113,6 +113,7 @@ export function registerMessageHandler(client: Client): void {
         challengeId: challenge.id,
         previewUserId: message.author.id,
         previewMessageId: previewMessage.id,
+        ...(statusMessage ? { processingStatusMessageId: statusMessage.id } : {}),
       });
       await statusMessage?.edit("분석이 완료되었습니다. 개인 DM의 승인/거절 버튼을 확인해 주세요.");
 

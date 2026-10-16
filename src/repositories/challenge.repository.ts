@@ -101,6 +101,7 @@ export async function setChallengePreviewMessage(input: {
   challengeId: string;
   previewUserId: string;
   previewMessageId: string;
+  processingStatusMessageId?: string;
 }) {
   return prisma.$transaction(async (tx) => {
     const challenge = await tx.challenge.update({
@@ -108,6 +109,9 @@ export async function setChallengePreviewMessage(input: {
       data: {
         previewUserId: input.previewUserId,
         previewMessageId: input.previewMessageId,
+        ...(input.processingStatusMessageId
+          ? { processingStatusMessageId: input.processingStatusMessageId }
+          : {}),
       },
     });
 

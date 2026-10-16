@@ -5,6 +5,7 @@ import {
   type Guild,
 } from "discord.js";
 import { config } from "../config.js";
+import { logger } from "../logger.js";
 import {
   approveChallenge,
   findChallengeForApproval,
@@ -53,6 +54,24 @@ async function assertAdmin(
     : config.ADMIN_ROLE_ID ? member.roles.cache.has(config.ADMIN_ROLE_ID) : false;
   if (!isAdmin && !hasConfiguredRole) throw new Error("Only administrators can approve challenges");
   return guild;
+}
+
+async function deleteSourceMessageIfPresent(
+  guild: Guild,
+  channelId: string,
+  messageId: string | null | undefined,
+  label: string,
+): Promise<void> {
+  if (!messageId) return;
+  try {
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel?.isTextBased() || !("messages" in channel)) {
+      throw new Error(`Channel is not message-addressable: ${channelId}`);
+    }
+    await channel.messages.delete(messageId);
+  } catch (error) {
+    logger.warn({ err: error, channelId, messageId, label }, "Challenge source message cleanup failed");
+  }
 }
 
 export async function approveChallengeFromInteraction(interaction: ButtonInteraction, challengeId: string) {
@@ -117,6 +136,14 @@ export async function approveChallengeFromInteraction(interaction: ButtonInterac
     publicChannelId: channel.id,
     publicMessageId: publicMessage.id,
   });
+
+  await deleteSourceMessageIfPresent(guild, challenge.sourceChannelId, challenge.sourceMessageId, "source message");
+  await deleteSourceMessageIfPresent(
+    guild,
+    challenge.sourceChannelId,
+    challenge.processingStatusMessageId,
+    "processing status message",
+  );
 
   return publicMessage;
 }
