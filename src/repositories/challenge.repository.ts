@@ -1212,6 +1212,47 @@ export async function findGradeForResult(gradeId: string) {
   });
 }
 
+export async function finalizeSubmissionByGradeId(gradeId: string) {
+  return prisma.$transaction(async (tx) => {
+    const grade = await tx.grade.findUnique({
+      where: { id: gradeId },
+      include: { submission: { include: { challenge: true } } },
+    });
+    if (!grade) throw new Error("Grade not found");
+
+    const discarded = await tx.job.updateMany({
+      where: {
+        submissionId: grade.submissionId,
+        status: { in: ["PENDING", "RUNNING"] },
+      },
+      data: {
+        status: "CANCELLED",
+        finishedAt: new Date(),
+        lastError: `Discarded after grade ${grade.id} was finalized`,
+      },
+    });
+
+    await tx.submission.updateMany({
+      where: { id: grade.submissionId, deletedAt: null },
+      data: { status: "GRADED" },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: grade.submission.challenge.guildConfigId,
+        action: "SUBMISSION_FINALIZED",
+        entityType: "Grade",
+        entityId: grade.id,
+        challengeId: grade.submission.challengeId,
+        submissionId: grade.submissionId,
+        metadata: { discardedJobCount: discarded.count, totalScore: grade.totalScore, maxScore: grade.maxScore },
+      },
+    });
+
+    return { grade, discardedJobCount: discarded.count };
+  });
+}
+
 export async function recordGradeResultPublished(input: {
   gradeId: string;
   messageId: string;

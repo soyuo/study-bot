@@ -1,6 +1,8 @@
 import {
   claimNextSubmissionGradingJob,
   completeSubmissionGrading,
+  finalizeSubmissionByGradeId,
+  findGradeForResult,
   failSubmissionGrading,
   findSubmissionGradingSnapshot,
   recoverStaleSubmissionGradingJobs,
@@ -14,6 +16,7 @@ import { logger } from "../logger.js";
 import type { Client } from "discord.js";
 import { validateGradingResponse } from "../validators/grading.schema.js";
 import { expandZipArtifact } from "../services/submission-snapshot.service.js";
+import { updateSubmissionControlStatus } from "../services/challenge-hint.service.js";
 
 type GradingJob = NonNullable<Awaited<ReturnType<typeof claimNextSubmissionGradingJob>>>;
 
@@ -34,6 +37,7 @@ export async function processNextSubmissionGradingJob(
   modelName: string,
   onCompleted?: (gradeId: string) => Promise<void>,
   guildConfigId?: string,
+  onStarted?: (job: GradingJob) => Promise<void>,
 ) {
   const job = await claimNextSubmissionGradingJob(new Date(), guildConfigId);
   if (!job) return { processed: false };
@@ -41,6 +45,7 @@ export async function processNextSubmissionGradingJob(
   let gradeId: string | undefined;
   try {
     if (!job.submission) throw new Error("Grading job submission is missing");
+    if (onStarted) await onStarted(job);
     const snapshotId = snapshotIdFromJob(job);
     const snapshot = await findSubmissionGradingSnapshot({
       submissionId: job.submission.id,
@@ -160,7 +165,37 @@ export function startGeminiSubmissionGradingWorker(
         grader,
         modelName,
         async (gradeId) => {
+          await finalizeSubmissionByGradeId(gradeId);
           await publishGradingResult(client, gradeId);
+          const grade = await findGradeForResult(gradeId);
+          if (!grade) return;
+          await updateSubmissionControlStatus({
+            client,
+            submissionId: grade.submissionId,
+            challengeId: grade.submission.challengeId,
+            userId: grade.submission.userId,
+            channelId: grade.submission.channelId,
+            controlMessageId: grade.submission.controlMessageId,
+            status: "GRADED",
+          });
+        },
+        undefined,
+        async (job) => {
+          if (!job.submission) return;
+          try {
+            await updateSubmissionControlStatus({
+              client,
+              submissionId: job.submission.id,
+              challengeId: job.submission.challengeId,
+              userId: job.submission.userId,
+              channelId: job.submission.channelId,
+              controlMessageId: job.submission.controlMessageId,
+              status: "GRADING",
+              gradingStartedAt: job.startedAt ?? new Date(),
+            });
+          } catch (error) {
+            logger.warn({ err: error, submissionId: job.submission.id }, "Submission grading status message could not be updated");
+          }
         },
       );
     } catch (error) {

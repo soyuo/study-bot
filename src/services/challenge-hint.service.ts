@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type ButtonInteraction } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type ButtonInteraction, type Client } from "discord.js";
 import { config } from "../config.js";
 import { customIds } from "../commands/ids.js";
 import { logger } from "../logger.js";
@@ -8,6 +8,7 @@ import {
   createChallengeHint,
   findChallengeForApproval,
   findChallengeHint,
+  hasChallengeHintView,
   findSubmissionHintContext,
   recordChallengeHintView,
   updateChallengeHint,
@@ -192,10 +193,10 @@ export function buildChallengeHintEmbed(challenge: ChallengeForHint, hint: HintC
 function submissionStatusLabel(status: string): string {
   if (status === "SUBMITTED") return "제출 확정";
   if (status === "GRADING") return "채점 중";
-  if (status === "GRADED") return "채점 완료";
+  if (status === "GRADED") return "과제 완료";
   if (status === "GRADING_FAILED") return "채점 실패";
   if (status === "LOCKED") return "잠김";
-  return "제출 진행 중";
+  return "제출 대기";
 }
 
 export function buildSubmissionControlContent(
@@ -203,15 +204,20 @@ export function buildSubmissionControlContent(
   submissionId: string,
   hintViewed: boolean,
   status = "OPEN",
+  gradingStartedAt?: Date,
 ): string {
-  return [
+  const lines = [
     `**${title}** 제출 공간입니다.`,
     `Submission ID: \`${submissionId}\``,
     "결과물, 설명, README, GitHub 링크 또는 파일을 이 채널에 제출해주세요.",
     "제출이 끝나면 아래 버튼을 눌러주세요. 제출 후에는 수정할 수 없습니다.",
     `힌트 열람: ${hintViewed ? "완료" : "아직 안 함"}`,
     `상태: ${submissionStatusLabel(status)}`,
-  ].join("\n");
+  ];
+  if (status === "GRADING" && gradingStartedAt) {
+    lines.push(`채점 시작: <t:${Math.floor(gradingStartedAt.getTime() / 1000)}:R>`);
+  }
+  return lines.join("\n");
 }
 
 export function buildSubmissionControlComponents(submissionId: string, challengeId: string, isOpen: boolean) {
@@ -251,6 +257,33 @@ async function updateSubmissionHintStatusMessage(interaction: ButtonInteraction,
       "Submission hint view status could not be updated",
     );
   }
+}
+
+export async function updateSubmissionControlStatus(input: {
+  client: Client;
+  submissionId: string;
+  challengeId: string;
+  userId: string;
+  channelId: string | null;
+  controlMessageId: string | null;
+  status: string;
+  gradingStartedAt?: Date;
+}) {
+  if (!input.channelId || !input.controlMessageId) return;
+  const channel = await input.client.channels.fetch(input.channelId);
+  if (!channel?.isTextBased() || !("messages" in channel)) return;
+  const hintViewed = await hasChallengeHintView({ challengeId: input.challengeId, userId: input.userId });
+  const message = await channel.messages.fetch(input.controlMessageId);
+  await message.edit({
+    content: buildSubmissionControlContent(
+      (await findChallengeForApproval(input.challengeId))?.title ?? "제출",
+      input.submissionId,
+      hintViewed,
+      input.status,
+      input.gradingStartedAt,
+    ),
+    components: input.status === "OPEN" ? buildSubmissionControlComponents(input.submissionId, input.challengeId, true) : [],
+  });
 }
 
 export async function getChallengeHintForInteraction(interaction: ButtonInteraction, challengeId: string) {
