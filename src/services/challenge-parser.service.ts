@@ -15,6 +15,27 @@ export type MockChallengeParserResult =
   | ParsedChallenge
   | ((input: ChallengeRegistrationInput) => ParsedChallenge | Promise<ParsedChallenge>);
 
+function normalizeCriterionCodes(value: unknown): unknown {
+  if (!value || typeof value !== "object" || !Array.isArray((value as { rubric?: unknown }).rubric)) return value;
+
+  const used = new Set<string>();
+  const rubric = (value as { rubric: unknown[] }).rubric.map((criterion, index) => {
+    if (!criterion || typeof criterion !== "object") return criterion;
+
+    const rawCode = typeof (criterion as { code?: unknown }).code === "string"
+      ? (criterion as { code: string }).code.trim().toLowerCase()
+      : "";
+    const baseCode = rawCode.replace(/[^a-z0-9_-]+/g, "_").replace(/^[^a-z0-9]+/, "") || `criterion_${index + 1}`;
+    let code = baseCode;
+    let suffix = 2;
+    while (used.has(code)) code = `${baseCode}_${suffix++}`;
+    used.add(code);
+    return { ...criterion, code };
+  });
+
+  return { ...value, rubric };
+}
+
 /**
  * Deterministic parser for local development and tests.
  * The result still passes through the same Zod validation used by a real AI parser.
@@ -24,12 +45,12 @@ export class MockChallengeParser implements ChallengeParser {
 
   async parse(input: ChallengeRegistrationInput): Promise<ParsedChallenge> {
     const result = typeof this.result === "function" ? await this.result(input) : this.result;
-    return parsedChallengeSchema.parse(result);
+    return parsedChallengeSchema.parse(normalizeCriterionCodes(result));
   }
 }
 
 export function validateParsedChallenge(value: unknown): ParsedChallenge {
-  return parsedChallengeSchema.parse(value);
+  return parsedChallengeSchema.parse(normalizeCriterionCodes(value));
 }
 
 const challengeResponseJsonSchema = {
@@ -72,7 +93,7 @@ const challengeResponseJsonSchema = {
         additionalProperties: false,
         required: ["code", "name", "description", "maxPoints", "evaluationGuide", "verificationMethod"],
         properties: {
-          code: { type: "string" },
+          code: { type: "string", pattern: "^[a-z0-9][a-z0-9_-]*$" },
           name: { type: "string" },
           description: { type: "string" },
           maxPoints: { type: "integer", minimum: 1 },
@@ -145,7 +166,7 @@ export class GeminiChallengeParser implements ChallengeParser {
         throw new Error("Gemini returned invalid JSON");
       }
 
-      return parsedChallengeSchema.parse(decoded);
+      return parsedChallengeSchema.parse(normalizeCriterionCodes(decoded));
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("Gemini returned")) throw error;
       throw new Error("Gemini challenge parsing failed", { cause: error });
