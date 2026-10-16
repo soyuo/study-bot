@@ -32,6 +32,7 @@ export function shouldProcessChallengeMessage(
 
 export function registerMessageHandler(client: Client): void {
   client.on(Events.MessageCreate, async (message: Message) => {
+    let statusMessage: Message | undefined;
     try {
       if (message.author.bot || !message.guild) return;
       const guildConfig = await findGuildConfigByGuildId(message.guild.id);
@@ -40,6 +41,22 @@ export function registerMessageHandler(client: Client): void {
         logger.error({ guildId: message.guild.id }, "Cannot parse challenge: GEMINI_API_KEY is not configured");
         return;
       }
+
+      try {
+        statusMessage = await message.reply("과제 내용을 분석하고 있습니다. 완료되면 개인 DM으로 승인 요청을 보냅니다.");
+      } catch (error) {
+        logger.warn({ err: error, messageId: message.id }, "Could not post challenge processing status");
+      }
+
+      let previewMessage: Message;
+      try {
+        previewMessage = await message.author.send("과제 내용을 분석하고 있습니다...");
+      } catch (error) {
+        logger.error({ err: error, messageId: message.id, userId: message.author.id }, "Challenge preview DM failed");
+        await statusMessage?.edit("개인 DM을 보낼 수 없습니다. Discord의 서버 멤버 DM 허용 여부를 확인해 주세요.");
+        return;
+      }
+      logger.info({ messageId: message.id, guildId: message.guild.id }, "Challenge parsing started");
 
       const messageTextAttachment = message.attachments.find(
         (attachment) => attachment.name?.toLowerCase() === "message.txt",
@@ -70,9 +87,10 @@ export function registerMessageHandler(client: Client): void {
         model: config.GEMINI_MODEL,
       });
       const challenge = await createChallengeDraftFromParser({ registration, parser });
+      logger.info({ challengeId: challenge.id, messageId: message.id }, "Challenge draft created");
       const rubric = challenge.rubrics[0];
 
-      const preview = await message.author.send({
+      await previewMessage.edit({
         embeds: [
           buildChallengePreviewEmbed({
             id: challenge.id,
@@ -94,15 +112,17 @@ export function registerMessageHandler(client: Client): void {
       await setChallengePreviewMessage({
         challengeId: challenge.id,
         previewUserId: message.author.id,
-        previewMessageId: preview.id,
+        previewMessageId: previewMessage.id,
       });
+      await statusMessage?.edit("분석이 완료되었습니다. 개인 DM의 승인/거절 버튼을 확인해 주세요.");
 
       logger.info(
-        { challengeId: challenge.id, messageId: message.id, rubricId: rubric?.id },
+        { challengeId: challenge.id, messageId: message.id, rubricId: rubric?.id, previewMessageId: previewMessage.id },
         "Challenge draft created and preview sent",
       );
     } catch (error) {
       logger.error({ err: error, messageId: message.id, guildId: message.guild?.id }, "Challenge registration failed");
+      await statusMessage?.edit("과제 처리에 실패했습니다. 서버 로그에서 원인을 확인해 주세요.").catch(() => undefined);
     }
   });
 }
