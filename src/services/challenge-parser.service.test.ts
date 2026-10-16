@@ -36,3 +36,28 @@ test("normalizes rubric codes returned by the model", () => {
 
   assert.deepEqual(parsed.rubric.map((criterion) => criterion.code), ["criterion_1", "criterion_2"]);
 });
+
+test("normalizes NORMAL difficulty to the compatible MEDIUM storage value", () => {
+  const parsed = validateParsedChallenge({
+    title: "Fundamentals",
+    description: "A fundamentals challenge description",
+    difficulty: "NORMAL",
+    requirements: ["Implement the feature"],
+    optionalRequirements: [],
+    deliverables: ["Source code"],
+    allowedLanguages: ["TypeScript"],
+    constraints: [],
+    deadlinePolicy: { type: "NONE" },
+    maxScore: 10,
+    rubric: [{
+      code: "implementation",
+      name: "Implementation",
+      description: "The feature works",
+      maxPoints: 10,
+      evaluationGuide: "Review the implementation",
+      verificationMethod: "STATIC_ANALYSIS",
+    }],
+  });
+
+  assert.equal(parsed.difficulty, "MEDIUM");
+});

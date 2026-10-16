@@ -30,6 +30,10 @@ export interface ChallengeEmbedData {
   maxScore: number;
 }
 
+export function formatChallengeDifficulty(difficulty: Challenge["difficulty"]): string {
+  return difficulty === "MEDIUM" ? "NORMAL" : difficulty;
+}
+
 export async function createChallengeDraft(input: {
   registration: ChallengeRegistrationInput;
   parsed: ParsedChallenge;
@@ -57,7 +61,7 @@ function buildBaseChallengeEmbed(challenge: ChallengeEmbedData): EmbedBuilder {
     .setTitle(`Challenge: ${challenge.title}`)
     .setDescription(challenge.description)
     .addFields(
-      { name: "난이도", value: challenge.difficulty, inline: true },
+      { name: "난이도", value: formatChallengeDifficulty(challenge.difficulty), inline: true },
       { name: "최대 점수", value: `${challenge.maxScore}점`, inline: true },
       { name: "요구사항", value: listField(challenge.requirements) },
       { name: "제출물", value: listField(challenge.deliverables) },
