@@ -32,8 +32,9 @@ export async function processNextSubmissionGradingJob(
   grader: ChallengeGrader,
   modelName: string,
   onCompleted?: (gradeId: string) => Promise<void>,
+  guildConfigId?: string,
 ) {
-  const job = await claimNextSubmissionGradingJob();
+  const job = await claimNextSubmissionGradingJob(new Date(), guildConfigId);
   if (!job) return { processed: false };
 
   let gradeId: string | undefined;

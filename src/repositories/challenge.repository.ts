@@ -986,20 +986,26 @@ export async function queueSubmissionRegrading(input: {
   });
 }
 
-export async function claimNextSubmissionGradingJob(now = new Date()) {
+export async function claimNextSubmissionGradingJob(now = new Date(), guildConfigId?: string) {
   return prisma.$transaction(async (tx) => {
     const candidate = await tx.job.findFirst({
       where: {
         type: { in: ["SUBMISSION_GRADING", "SUBMISSION_REGRADING"] },
         status: "PENDING",
         availableAt: { lte: now },
+        ...(guildConfigId ? { guildConfigId } : {}),
       },
       orderBy: { createdAt: "asc" },
     });
     if (!candidate) return null;
 
     const claimed = await tx.job.updateMany({
-      where: { id: candidate.id, status: "PENDING", availableAt: { lte: now } },
+      where: {
+        id: candidate.id,
+        status: "PENDING",
+        availableAt: { lte: now },
+        ...(guildConfigId ? { guildConfigId } : {}),
+      },
       data: {
         status: "RUNNING",
         attempt: { increment: 1 },

@@ -157,6 +157,8 @@ if (!testDatabaseUrl) {
         }),
       },
       "test-grader",
+      undefined,
+      draft.guildConfigId,
     );
     const storedSubmission = await prisma.submission.findUnique({
       where: { id: reserved.id },
