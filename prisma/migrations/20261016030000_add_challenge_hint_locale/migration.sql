@@ -1,0 +1,1 @@
+ALTER TABLE "ChallengeHint" ADD COLUMN IF NOT EXISTS "locale" TEXT;
