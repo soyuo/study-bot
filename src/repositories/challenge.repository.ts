@@ -144,6 +144,45 @@ export async function findChallengeForApproval(challengeId: string) {
   });
 }
 
+export async function findChallengesForPublicArchive(input: {
+  guildConfigId: string;
+  excludeChallengeId: string;
+}) {
+  return prisma.challenge.findMany({
+    where: {
+      guildConfigId: input.guildConfigId,
+      id: { not: input.excludeChallengeId },
+      status: { in: ["ACTIVE", "CLOSED"] },
+      deletedAt: null,
+      publicChannelId: { not: null },
+      publicMessageId: { not: null },
+    },
+    include: { guildConfig: true },
+    orderBy: { updatedAt: "asc" },
+  });
+}
+
+export async function clearChallengePublicMessage(input: { challengeId: string; actorId: string }) {
+  return prisma.$transaction(async (tx) => {
+    const challenge = await tx.challenge.update({
+      where: { id: input.challengeId },
+      data: { publicChannelId: null, publicMessageId: null },
+    });
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "CHALLENGE_PUBLIC_ARCHIVED",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: { publicMessageArchived: true },
+      },
+    });
+    return challenge;
+  });
+}
+
 export async function findChallengeHint(challengeId: string) {
   return prisma.challengeHint.findUnique({ where: { challengeId } });
 }

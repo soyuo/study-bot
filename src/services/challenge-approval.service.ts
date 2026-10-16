@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  EmbedBuilder,
   PermissionFlagsBits,
   type ButtonInteraction,
   type Guild,
@@ -9,7 +10,9 @@ import { logger } from "../logger.js";
 import {
   approveChallenge,
   findChallengeForApproval,
+  findChallengesForPublicArchive,
   findPendingArchiveRecords,
+  clearChallengePublicMessage,
   completeArchiveRecord,
   failArchiveRecord,
   rejectChallenge,
@@ -39,6 +42,56 @@ function toEmbedData(challenge: NonNullable<Awaited<ReturnType<typeof findChalle
     deadline: challenge.deadline,
     maxScore: challenge.maxScore,
   };
+}
+
+function truncate(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
+}
+
+async function archivePreviousPublicMessage(
+  guild: Guild,
+  challenge: Awaited<ReturnType<typeof findChallengesForPublicArchive>>[number],
+  actorId: string,
+): Promise<void> {
+  const adminLogChannelId = challenge.guildConfig.adminLogChannelId ?? config.ADMIN_LOG_CHANNEL_ID;
+  if (!adminLogChannelId || !challenge.publicChannelId || !challenge.publicMessageId) {
+    logger.warn({ challengeId: challenge.id }, "Previous challenge public message cannot be archived without an admin log channel");
+    return;
+  }
+
+  const attachmentInfo = challenge.sourceAttachments ? JSON.stringify(challenge.sourceAttachments) : "없음";
+  try {
+    const logChannel = await guild.channels.fetch(adminLogChannelId);
+    if (!logChannel?.isTextBased() || !logChannel.isSendable()) {
+      throw new Error(`Admin log channel is not sendable: ${adminLogChannelId}`);
+    }
+    await logChannel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle("Challenge 아카이브 로그")
+          .setDescription("다음 과제 공개로 인해 보관된 과제의 원본 내용입니다.")
+          .addFields(
+            { name: "Challenge ID", value: challenge.id, inline: true },
+            { name: "처리자", value: actorId, inline: true },
+            { name: "제목", value: truncate(challenge.title, 1_024) },
+            { name: "설명", value: truncate(challenge.description, 1_024) },
+            { name: "원본 과제 내용", value: truncate(challenge.sourceContent ?? "없음", 1_024) },
+            { name: "첨부 파일 정보", value: `\`\`\`json\n${truncate(attachmentInfo, 900)}\n\`\`\`` },
+          )
+          .setFooter({ text: `Challenge ID: ${challenge.id}` })
+          .setTimestamp(),
+      ],
+    });
+
+    const publicChannel = await guild.channels.fetch(challenge.publicChannelId);
+    if (publicChannel?.isTextBased() && "messages" in publicChannel) {
+      await publicChannel.messages.delete(challenge.publicMessageId);
+    }
+    await clearChallengePublicMessage({ challengeId: challenge.id, actorId });
+  } catch (error) {
+    logger.warn({ err: error, challengeId: challenge.id }, "Previous challenge public message archive failed");
+  }
 }
 
 async function assertAdmin(
@@ -88,6 +141,14 @@ export async function approveChallengeFromInteraction(interaction: ButtonInterac
     challengeId,
     approverId: interaction.user.id,
   });
+
+  const previousPublicChallenges = await findChallengesForPublicArchive({
+    guildConfigId: challenge.guildConfigId,
+    excludeChallengeId: challengeId,
+  });
+  for (const previousChallenge of previousPublicChallenges) {
+    await archivePreviousPublicMessage(guild, previousChallenge, interaction.user.id);
+  }
 
   const pendingArchives = await findPendingArchiveRecords({
     guildConfigId: challenge.guildConfigId,
