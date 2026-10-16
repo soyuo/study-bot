@@ -4,6 +4,7 @@ import { customIds, parseCustomId } from "./commands/ids.js";
 import { formatDiscordTimestamp, formatSystemDateTime, isDeadlinePassed, parseDeadlineDateInput, resolveDeadline } from "./utils/deadline.js";
 import { validateGradingResponse } from "./validators/grading.schema.js";
 import { isSupportedSourcePath, parseGitHubUrl } from "./services/github.service.js";
+import { detectHintLocale } from "./utils/language.js";
 
 test("relative deadline resolves to exactly 72 hours", () => {
   const base = new Date("2026-01-01T00:00:00.000Z");
@@ -20,6 +21,11 @@ test("deadline is passed at the exact boundary", () => {
 
 test("system date formatter renders deadlines in Korea Standard Time", () => {
   assert.equal(formatSystemDateTime(new Date("2026-01-01T00:00:00.000Z")), "26. 1. 1. 오전 9:00");
+});
+
+test("hint locale follows the challenge language", () => {
+  assert.equal(detectHintLocale("Go로 워커 풀을 구현하세요."), "ko");
+  assert.equal(detectHintLocale("Implement a worker pool in Go."), "en");
 });
 
 test("deadline date input is interpreted as Korea Standard Time", () => {

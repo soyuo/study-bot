@@ -154,6 +154,7 @@ export async function createChallengeHint(input: {
   steps: string[];
   language: string;
   code: string;
+  locale: string;
 }) {
   return prisma.challengeHint.create({
     data: {
@@ -162,6 +163,27 @@ export async function createChallengeHint(input: {
       steps: toJson(input.steps),
       language: input.language,
       code: input.code,
+      locale: input.locale,
+    },
+  });
+}
+
+export async function updateChallengeHint(input: {
+  challengeId: string;
+  explanation: string;
+  steps: string[];
+  language: string;
+  code: string;
+  locale: string;
+}) {
+  return prisma.challengeHint.update({
+    where: { challengeId: input.challengeId },
+    data: {
+      explanation: input.explanation,
+      steps: toJson(input.steps),
+      language: input.language,
+      code: input.code,
+      locale: input.locale,
     },
   });
 }

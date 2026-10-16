@@ -5,6 +5,7 @@ CREATE TABLE "ChallengeHint" (
     "steps" JSONB NOT NULL,
     "language" TEXT NOT NULL,
     "code" TEXT NOT NULL,
+    "locale" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ChallengeHint_pkey" PRIMARY KEY ("id")
 );

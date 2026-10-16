@@ -151,6 +151,7 @@ model ChallengeHint {
   steps       Json
   language    String
   code        String
+  locale      String?
   createdAt   DateTime @default(now())
 
   challenge Challenge         @relation(fields: [challengeId], references: [id])
