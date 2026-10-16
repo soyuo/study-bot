@@ -2,6 +2,20 @@ import type { DeadlinePolicy } from "../validators/challenge.schema.js";
 
 export const SYSTEM_TIME_ZONE = "Asia/Seoul";
 
+export function parseDeadlineDateInput(input: string): Date {
+  const value = input.trim();
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T23:59:00+09:00`
+    : /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value)
+      ? `${value.replace(" ", "T")}:00+09:00`
+      : value;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("마감일 형식이 올바르지 않습니다. YYYY-MM-DD 또는 YYYY-MM-DD HH:mm 형식을 사용하세요.");
+  }
+  return parsed;
+}
+
 export function resolveDeadline(policy: DeadlinePolicy, baseTime: Date): Date | null {
   if (policy.type === "NONE") return null;
   if (policy.type === "RELATIVE") {

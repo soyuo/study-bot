@@ -247,6 +247,39 @@ export async function approveChallenge(input: {
   });
 }
 
+export async function updateChallengeDeadline(input: {
+  challengeId: string;
+  actorId: string;
+  deadline: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const challenge = await tx.challenge.findUnique({ where: { id: input.challengeId } });
+    if (!challenge || challenge.deletedAt || !["DRAFT", "ACTIVE"].includes(challenge.status)) {
+      throw new Error("마감일을 변경할 수 없는 Challenge입니다");
+    }
+
+    const updated = await tx.challenge.update({
+      where: { id: challenge.id },
+      data: { deadline: input.deadline },
+    });
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "CHALLENGE_DEADLINE_UPDATED",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: {
+          previousDeadline: challenge.deadline?.toISOString() ?? null,
+          deadline: input.deadline.toISOString(),
+        },
+      },
+    });
+    return updated;
+  });
+}
+
 export async function findPendingArchiveRecords(input: {
   guildConfigId: string;
   excludeChallengeId: string;

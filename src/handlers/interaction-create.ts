@@ -15,6 +15,8 @@ import { getAuditLogEmbed } from "../services/audit-query.service.js";
 import { deleteSubmissionFromInteraction } from "../services/submission-deletion.service.js";
 import { logger } from "../logger.js";
 import { getHealthEmbed } from "../services/health.service.js";
+import { updateChallengeDeadlineFromInteraction } from "../services/deadline-command.service.js";
+import { formatDiscordTimestamp } from "../utils/deadline.js";
 
 export function resolveInteractionRoute(input: {
   kind: "chat" | "button" | "other";
@@ -91,6 +93,13 @@ export function registerInteractionHandler(client: Client): void {
           await interaction.deferReply({ ephemeral: true });
           const result = await retryArchivesFromInteraction(interaction);
           await interaction.editReply(`Archive 재시도: ${result.completed}/${result.queued}건 완료되었습니다.`);
+          return;
+        }
+        if (interaction.commandName === "deadline") {
+          await interaction.deferReply({ ephemeral: true });
+          const challengeId = interaction.options.getString("challenge_id", true);
+          const deadline = await updateChallengeDeadlineFromInteraction(interaction, challengeId);
+          await interaction.editReply(`마감일이 설정되었습니다: ${formatDiscordTimestamp(deadline)}`);
           return;
         }
         if (interaction.commandName !== "regrade") return;

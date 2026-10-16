@@ -28,6 +28,7 @@ test("registers all application commands through the configured REST route", asy
     [
       "regrade",
       "archive-retry",
+      "deadline",
       "config",
       "submission",
       "challenge-delete",

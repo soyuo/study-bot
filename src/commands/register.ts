@@ -25,6 +25,19 @@ export function buildApplicationCommands() {
     .setName("archive-retry")
     .setDescription("실패한 제출 채널 Archive를 다시 실행합니다.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+  const deadline = new SlashCommandBuilder()
+    .setName("deadline")
+    .setDescription("Challenge 마감일을 상대 시간 또는 날짜로 설정합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("challenge_id").setDescription("마감일을 설정할 Challenge ID").setRequired(true),
+    )
+    .addIntegerOption((option) =>
+      option.setName("hours").setDescription("현재 시각부터 몇 시간 후인지 입력합니다.").setMinValue(1).setMaxValue(24 * 365),
+    )
+    .addStringOption((option) =>
+      option.setName("date").setDescription("YYYY-MM-DD 또는 YYYY-MM-DD HH:mm (KST)").setMaxLength(40),
+    );
   const guildConfig = new SlashCommandBuilder()
     .setName("config")
     .setDescription("현재 서버의 Study Bot 설정을 변경합니다.")
@@ -82,6 +95,7 @@ export function buildApplicationCommands() {
   return [
     command.toJSON(),
     archiveRetry.toJSON(),
+    deadline.toJSON(),
     guildConfig.toJSON(),
     submission.toJSON(),
     challengeDelete.toJSON(),

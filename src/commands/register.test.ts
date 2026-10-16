@@ -13,6 +13,7 @@ test("application commands expose the expected command set", () => {
   assert.deepEqual(names, [
     "regrade",
     "archive-retry",
+    "deadline",
     "config",
     "submission",
     "challenge-delete",
@@ -27,6 +28,7 @@ test("administrator commands require administrator permissions", () => {
   const administratorCommands = new Set([
     "regrade",
     "archive-retry",
+    "deadline",
     "config",
     "challenge-delete",
     "audit",
@@ -48,8 +50,9 @@ test("config and submission commands preserve required option contracts", () => 
   const config = commands.find((command) => command.name === "config");
   const submission = commands.find((command) => command.name === "submission");
   const regrade = commands.find((command) => command.name === "regrade");
+  const deadline = commands.find((command) => command.name === "deadline");
 
-  if (!config || !submission || !regrade) throw new Error("Expected commands are missing");
+  if (!config || !submission || !regrade || !deadline) throw new Error("Expected commands are missing");
   const configOptions = config.options as Array<{
     name: string;
     type: number;
@@ -80,4 +83,11 @@ test("config and submission commands preserve required option contracts", () => 
   const regradeOptions = regrade.options as Array<{ name: string; required?: boolean }>;
   assert.equal(regradeOptions[0]?.name, "submission_id");
   assert.equal(regradeOptions[0]?.required, true);
+
+  const deadlineOptions = deadline.options as Array<{ name: string; required?: boolean }>;
+  assert.deepEqual(deadlineOptions.map((option) => [option.name, option.required]), [
+    ["challenge_id", true],
+    ["hours", false],
+    ["date", false],
+  ]);
 });
