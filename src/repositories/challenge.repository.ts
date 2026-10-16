@@ -144,6 +144,51 @@ export async function findChallengeForApproval(challengeId: string) {
   });
 }
 
+export async function findChallengeHint(challengeId: string) {
+  return prisma.challengeHint.findUnique({ where: { challengeId } });
+}
+
+export async function createChallengeHint(input: {
+  challengeId: string;
+  explanation: string;
+  steps: string[];
+  language: string;
+  code: string;
+}) {
+  return prisma.challengeHint.create({
+    data: {
+      challengeId: input.challengeId,
+      explanation: input.explanation,
+      steps: toJson(input.steps),
+      language: input.language,
+      code: input.code,
+    },
+  });
+}
+
+export async function recordChallengeHintView(input: { challengeId: string; userId: string }) {
+  return prisma.challengeHintView.upsert({
+    where: { challengeId_userId: input },
+    create: input,
+    update: { lastViewedAt: new Date() },
+  });
+}
+
+export async function hasChallengeHintView(input: { challengeId: string; userId: string }) {
+  const view = await prisma.challengeHintView.findUnique({
+    where: { challengeId_userId: input },
+    select: { id: true },
+  });
+  return Boolean(view);
+}
+
+export async function findSubmissionHintContext(input: { challengeId: string; userId: string }) {
+  return prisma.submission.findUnique({
+    where: { challengeId_userId: input },
+    select: { id: true, channelId: true, controlMessageId: true, status: true },
+  });
+}
+
 export async function findDeadlineChallengeSuggestions(input: { guildId: string; query: string }) {
   const query = input.query.trim();
   return prisma.challenge.findMany({

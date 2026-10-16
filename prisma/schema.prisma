@@ -137,9 +137,37 @@ model Challenge {
   archives    ArchiveRecord[]
   jobs        Job[]
   auditLogs   AuditLog[]
+  hint        ChallengeHint?
+  hintViews   ChallengeHintView[]
 
   @@index([guildConfigId, status])
   @@index([sourceChannelId, sourceMessageId])
+}
+
+model ChallengeHint {
+  id          String   @id @default(cuid())
+  challengeId String   @unique
+  explanation String
+  steps       Json
+  language    String
+  code        String
+  createdAt   DateTime @default(now())
+
+  challenge Challenge         @relation(fields: [challengeId], references: [id])
+}
+
+model ChallengeHintView {
+  id            String   @id @default(cuid())
+  challengeId   String
+  userId        String
+  firstViewedAt DateTime @default(now())
+  lastViewedAt  DateTime @updatedAt
+
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, firstViewedAt])
+  @@index([userId, firstViewedAt])
 }
 
 model RubricVersion {

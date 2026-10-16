@@ -1,7 +1,4 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ChannelType,
   PermissionFlagsBits,
   type ButtonInteraction,
@@ -9,12 +6,13 @@ import {
 import {
   findChallengeForSubmission,
   clearSubmissionChannel,
+  hasChallengeHintView,
   reserveSubmission,
   setSubmissionChannel,
   setSubmissionControlMessage,
 } from "../repositories/challenge.repository.js";
-import { customIds } from "../commands/ids.js";
 import { isDeadlinePassed } from "../utils/deadline.js";
+import { buildSubmissionControlComponents, buildSubmissionControlContent } from "./challenge-hint.service.js";
 
 const creationLocks = new Map<string, Promise<void>>();
 
@@ -94,20 +92,13 @@ export async function createSubmissionChannel(
 
     try {
       await setSubmissionChannel({ submissionId: submission.id, channelId: channel.id });
+      const hintViewed = await hasChallengeHintView({
+        challengeId,
+        userId: interaction.user.id,
+      });
       const controlMessage = await channel.send({
-        content: [
-          `**${challenge.title}** 제출 공간입니다.`,
-          "결과물, 설명, README, GitHub 링크 또는 파일을 이 채널에 제출해주세요.",
-          "제출이 끝나면 아래 버튼을 눌러주세요. 제출 후에는 수정할 수 없습니다.",
-        ].join("\n"),
-        components: [
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setCustomId(customIds.complete(submission.id))
-              .setLabel("제출 완료")
-              .setStyle(ButtonStyle.Success),
-          ),
-        ],
+        content: buildSubmissionControlContent(challenge.title, hintViewed),
+        components: buildSubmissionControlComponents(submission.id, challengeId, true),
       });
       await setSubmissionControlMessage({
         submissionId: submission.id,
