@@ -13,6 +13,7 @@ import { publishGradingResult } from "../services/grading-result.service.js";
 import { logger } from "../logger.js";
 import type { Client } from "discord.js";
 import { validateGradingResponse } from "../validators/grading.schema.js";
+import { expandZipArtifact } from "../services/submission-snapshot.service.js";
 
 type GradingJob = NonNullable<Awaited<ReturnType<typeof claimNextSubmissionGradingJob>>>;
 
@@ -50,6 +51,24 @@ export async function processNextSubmissionGradingJob(
     const rubric = job.submission.challenge.rubrics.find((version) => version.isFrozen);
     if (!rubric) throw new Error("Frozen rubric is missing");
 
+    const artifacts = (await Promise.all(snapshot.artifacts.map(async (artifact) => {
+      const baseArtifact = {
+        type: artifact.type,
+        source: artifact.source,
+        content: artifact.content ?? undefined,
+        filename: artifact.filename ?? undefined,
+        mimeType: artifact.mimeType ?? undefined,
+        storageKey: artifact.storageKey ?? undefined,
+      };
+      return [baseArtifact, ...await expandZipArtifact(baseArtifact)];
+    }))).flat().map((artifact) => ({
+      type: artifact.type,
+      source: artifact.source,
+      content: artifact.content ?? null,
+      filename: artifact.filename ?? null,
+      mimeType: artifact.mimeType ?? null,
+    }));
+
     const response = await grader.grade({
       challenge: {
         title: job.submission.challenge.title,
@@ -58,13 +77,7 @@ export async function processNextSubmissionGradingJob(
         deliverables: job.submission.challenge.deliverables,
       },
       rubric: rubric.criteria,
-      artifacts: snapshot.artifacts.map((artifact) => ({
-        type: artifact.type,
-        source: artifact.source,
-        content: artifact.content,
-        filename: artifact.filename,
-        mimeType: artifact.mimeType,
-      })),
+      artifacts,
     });
 
     const checked = validateGradingResponse(response, rubric.criteria);

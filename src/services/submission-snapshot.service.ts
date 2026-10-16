@@ -4,6 +4,9 @@ import {
   type Message,
   type TextChannel,
 } from "discord.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { resolve } from "node:path";
 import {
   createSubmissionSnapshot,
   findSubmissionForCompletion,
@@ -12,9 +15,15 @@ import {
 } from "../repositories/challenge.repository.js";
 import { resolveGitHubSnapshot } from "./github.service.js";
 import { persistDiscordAttachment } from "./artifact-storage.service.js";
+import { config } from "../config.js";
 
 const urlPattern = /https?:\/\/[^\s<>]+/g;
 const githubPattern = /^https?:\/\/github\.com\//i;
+const execFileAsync = promisify(execFile);
+const MAX_ZIP_ENTRIES = 200;
+const MAX_EXTRACTED_BYTES = 8 * 1024 * 1024;
+const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024;
+const textFilePattern = /\.(c|cc|cpp|css|csv|go|h|hpp|html?|java|js|json|jsx|md|mjs|py|rs|sh|sql|ts|tsx|txt|vue|xml|yml|yaml)$/i;
 
 type SnapshotArtifact = {
   type: "TEXT" | "FILE" | "URL" | "GITHUB";
@@ -66,6 +75,48 @@ function collectMessageArtifacts(message: Message, maxAttachmentBytes: number): 
   }
 
   return artifacts;
+}
+
+function isSafeZipEntry(entry: string): boolean {
+  const normalized = entry.replaceAll("\\", "/");
+  return !normalized.startsWith("/") && !normalized.split("/").includes("..") && !normalized.endsWith("/");
+}
+
+export async function expandZipArtifact(artifact: SnapshotArtifact): Promise<SnapshotArtifact[]> {
+  if (artifact.type !== "FILE" || !artifact.storageKey || !artifact.filename?.toLowerCase().endsWith(".zip")) return [];
+
+  const archivePath = resolve(config.ARTIFACT_STORAGE_DIR, artifact.storageKey);
+  try {
+    const listed = await execFileAsync("unzip", ["-Z1", archivePath], { maxBuffer: 1_000_000 });
+    const entries = String(listed.stdout)
+      .split("\n")
+      .map((entry) => entry.trim())
+      .filter((entry) => isSafeZipEntry(entry) && textFilePattern.test(entry))
+      .slice(0, MAX_ZIP_ENTRIES);
+    const expanded: SnapshotArtifact[] = [];
+    let extractedBytes = 0;
+
+    for (const entry of entries) {
+      const result = await execFileAsync("unzip", ["-p", archivePath, entry], {
+        maxBuffer: MAX_TEXT_FILE_BYTES,
+        encoding: "buffer",
+      }) as unknown as { stdout: Buffer };
+      const bytes = result.stdout;
+      extractedBytes += bytes.byteLength;
+      if (bytes.byteLength > MAX_TEXT_FILE_BYTES || extractedBytes > MAX_EXTRACTED_BYTES) break;
+      expanded.push({
+        type: "TEXT",
+        source: `zip:${artifact.storageKey}#${entry}`,
+        content: bytes.toString("utf8"),
+        filename: entry,
+        mimeType: "text/plain",
+        sizeBytes: bytes.byteLength,
+      });
+    }
+    return expanded;
+  } catch (error) {
+    throw new Error(`ZIP extraction failed for ${artifact.filename}`, { cause: error });
+  }
 }
 
 async function collectChannelArtifacts(
@@ -126,11 +177,13 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
           filename: artifact.filename,
           maxBytes: submission.challenge.guildConfig.maxAttachmentBytes,
         });
-        return { ...artifact, storageKey: stored.storageKey, sizeBytes: stored.sizeBytes };
+        const storedArtifact = { ...artifact, storageKey: stored.storageKey, sizeBytes: stored.sizeBytes };
+        const expanded = await expandZipArtifact(storedArtifact);
+        return [storedArtifact, ...expanded];
       }
-      if (artifact.type !== "GITHUB") return artifact;
+      if (artifact.type !== "GITHUB") return [artifact];
       const resolved = await resolveGitHubSnapshot(artifact.source);
-      return { ...artifact, content: resolved.content, commitSha: resolved.commitSha };
+      return [{ ...artifact, content: resolved.content, commitSha: resolved.commitSha }];
     }),
   );
 
@@ -158,7 +211,7 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
       controlMessageId: submission.controlMessageId,
       capturedAt: submittedAt.toISOString(),
     },
-    artifacts: enrichedArtifacts,
+    artifacts: enrichedArtifacts.flat(),
   });
 
   const grading = await queueSubmissionGrading({
