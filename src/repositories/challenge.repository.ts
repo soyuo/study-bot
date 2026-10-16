@@ -152,7 +152,7 @@ export async function findChallengesForPublicArchive(input: {
     where: {
       guildConfigId: input.guildConfigId,
       id: { not: input.excludeChallengeId },
-      status: { in: ["ACTIVE", "CLOSED"] },
+      status: "CLOSED",
       deletedAt: null,
       publicChannelId: { not: null },
       publicMessageId: { not: null },
