@@ -60,7 +60,12 @@ export async function processNextSubmissionGradingJob(
         mimeType: artifact.mimeType ?? undefined,
         storageKey: artifact.storageKey ?? undefined,
       };
-      return [baseArtifact, ...await expandZipArtifact(baseArtifact)];
+      try {
+        return [baseArtifact, ...await expandZipArtifact(baseArtifact)];
+      } catch (error) {
+        logger.warn({ err: error, artifact: artifact.id }, "ZIP expansion skipped during grading");
+        return [baseArtifact];
+      }
     }))).flat().map((artifact) => ({
       type: artifact.type,
       source: artifact.source,
