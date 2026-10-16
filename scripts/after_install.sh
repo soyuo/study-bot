@@ -2,12 +2,24 @@
 set -euo pipefail
 
 app_dir="/home/ubuntu/study-bot"
-env_backup="/home/ubuntu/.study-bot.env"
+env_backup="${app_dir}/../.study-bot.env"
 artifact_backup="/home/ubuntu/study-bot-data/artifacts"
 
 cd "${app_dir}"
 if [ -f "${env_backup}" ]; then
-  install -m 600 "${env_backup}" .env
+  # Moving removes the temporary parent-level backup after restoration.
+  mv -f "${env_backup}" .env
+  chmod 600 .env
+fi
+
+if [ ! -s .env ]; then
+  echo "Missing ${app_dir}/.env after deployment" >&2
+  exit 1
+fi
+
+if ! grep -qE '^DATABASE_URL[[:space:]]*=' .env; then
+  echo "DATABASE_URL is missing from ${app_dir}/.env" >&2
+  exit 1
 fi
 
 npm ci
