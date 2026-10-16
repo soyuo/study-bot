@@ -97,7 +97,7 @@ export async function createSubmissionChannel(
         userId: interaction.user.id,
       });
       const controlMessage = await channel.send({
-        content: buildSubmissionControlContent(challenge.title, hintViewed),
+        content: buildSubmissionControlContent(challenge.title, submission.id, hintViewed),
         components: buildSubmissionControlComponents(submission.id, challengeId, true),
       });
       await setSubmissionControlMessage({
