@@ -40,7 +40,7 @@ export function buildGradingResultEmbed(grade: GradeForResult): EmbedBuilder {
     )
     .setColor(color)
     .setTimestamp(grade.createdAt)
-    .setFooter({ text: `Grade ID: ${grade.id}` });
+    .setFooter({ text: `Grade ID: ${grade.id} · Submission ID: ${grade.submissionId}` });
 
   if (grade.reviewRequired) {
     embed.addFields({ name: "안내", value: "일부 항목은 관리자 확인이 필요합니다." });

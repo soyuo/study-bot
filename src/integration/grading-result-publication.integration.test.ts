@@ -145,7 +145,7 @@ if (!testDatabaseUrl) {
     assert.equal(embedData.title, "채점 결과: Publication Result Challenge");
     assert.equal(embedData.description, `제출자: <@${studentId}>\n상태: **통과**`);
     assert.equal(embedData.color, 0x57f287);
-    assert.equal(embedData.footer?.text, `Grade ID: ${grade.id}`);
+    assert.equal(embedData.footer?.text, `Grade ID: ${grade.id} · Submission ID: ${grade.submissionId}`);
     assert.equal(embedData.fields?.some((field) => field.name === "총점" && field.value.includes("10 / 10")), true);
     assert.equal(embedData.fields?.some((field) => field.name.startsWith("Result · 10/10")), true);
     assert.equal(storedLog?.action, "GRADE_RESULT_PUBLISHED");
