@@ -183,7 +183,8 @@ export function buildChallengeHintEmbed(challenge: ChallengeForHint, hint: HintC
     .setDescription(truncate(hint.explanation, 4_000))
     .addFields(
       { name: "풀이 방향", value: truncate(hint.steps.map((step, index) => `${index + 1}. ${step}`).join("\n"), 1_024) },
-      { name: `시작 코드 (${hint.language})`, value: `\`\`\`${hint.language}\n${truncate(hint.code, 3_850)}\n\`\`\`` },
+      // Discord embed field values are limited to 1,024 characters.
+      { name: `시작 코드 (${hint.language})`, value: `\`\`\`${hint.language}\n${truncate(hint.code, 900)}\n\`\`\`` },
     )
     .setFooter({ text: "힌트는 방향과 시작점만 제공합니다. 직접 완성해 보세요." });
 }
