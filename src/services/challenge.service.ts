@@ -28,6 +28,7 @@ export interface ChallengeEmbedData {
   constraints?: string[];
   deadline: Date | null;
   maxScore: number;
+  closed?: boolean;
 }
 
 export function formatChallengeDifficulty(difficulty: Challenge["difficulty"]): string {
@@ -115,7 +116,7 @@ export function buildChallengePublicComponents(challenge: ChallengeEmbedData, no
         .setCustomId(customIds.submit(challenge.id))
         .setLabel("과제 제출")
         .setStyle(ButtonStyle.Primary)
-        .setDisabled(isDeadlinePassed(challenge.deadline, now)),
+        .setDisabled(challenge.closed === true || isDeadlinePassed(challenge.deadline, now)),
       new ButtonBuilder()
         .setCustomId(customIds.hint(challenge.id))
         .setLabel("힌트")

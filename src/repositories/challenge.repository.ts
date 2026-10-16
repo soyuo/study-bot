@@ -482,6 +482,15 @@ export async function closeExpiredChallenges(now = new Date()) {
             data: { status: "LOCKED", lockedAt: now },
           });
         }
+        await tx.archiveRecord.create({
+          data: {
+            challengeId: challenge.id,
+            submissionId: submission.id,
+            channelId: submission.channelId!,
+            status: "PENDING",
+            startedAt: now,
+          },
+        });
         lockedChannels.push({
           challengeId: challenge.id,
           submissionId: submission.id,
@@ -501,6 +510,61 @@ export async function closeExpiredChallenges(now = new Date()) {
       });
     }
     return lockedChannels;
+  });
+}
+
+export async function closeChallenge(input: { challengeId: string; actorId: string; closedAt?: Date }) {
+  return prisma.$transaction(async (tx) => {
+    const challenge = await tx.challenge.findUnique({ where: { id: input.challengeId } });
+    if (!challenge || challenge.deletedAt || challenge.status !== "ACTIVE") {
+      throw new Error("Only an active Challenge can be closed");
+    }
+
+    const closedAt = input.closedAt ?? new Date();
+    const submissions = await tx.submission.findMany({
+      where: { challengeId: challenge.id, deletedAt: null, channelId: { not: null } },
+      select: { id: true, userId: true, channelId: true, status: true },
+    });
+    for (const submission of submissions) {
+      if (submission.status === "OPEN") {
+        await tx.submission.update({
+          where: { id: submission.id },
+          data: { status: "LOCKED", lockedAt: closedAt },
+        });
+      }
+      await tx.archiveRecord.create({
+        data: {
+          challengeId: challenge.id,
+          submissionId: submission.id,
+          channelId: submission.channelId!,
+          status: "PENDING",
+          startedAt: closedAt,
+        },
+      });
+    }
+    const updated = await tx.challenge.update({
+      where: { id: challenge.id },
+      data: { status: "CLOSED", closedAt },
+    });
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "CHALLENGE_CLOSED_MANUALLY",
+        entityType: "Challenge",
+        entityId: challenge.id,
+        challengeId: challenge.id,
+        metadata: { closedAt: closedAt.toISOString(), submissionCount: submissions.length },
+      },
+    });
+    return {
+      ...updated,
+      lockedChannels: submissions.map((submission) => ({
+        submissionId: submission.id,
+        userId: submission.userId,
+        channelId: submission.channelId!,
+      })),
+    };
   });
 }
 

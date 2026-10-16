@@ -11,6 +11,7 @@ import { retryArchivesFromInteraction } from "../services/archive-retry.service.
 import { updateGuildConfiguration } from "../services/configuration.service.js";
 import { getSubmissionQueryEmbed } from "../services/submission-query.service.js";
 import { deleteChallengeFromInteraction } from "../services/challenge-deletion.service.js";
+import { closeChallengeFromInteraction } from "../services/challenge-close.service.js";
 import { getAuditLogEmbed } from "../services/audit-query.service.js";
 import { deleteSubmissionFromInteraction } from "../services/submission-deletion.service.js";
 import { logger } from "../logger.js";
@@ -83,6 +84,15 @@ export function registerInteractionHandler(client: Client): void {
             : `제출 방 ${result.deletedSubmissionChannelCount}개도 삭제했습니다.`;
           await interaction.editReply(
             `Challenge가 삭제 처리되었습니다. ${result.deletedSubmissionCount}개의 Submission을 삭제했고 ${channelMessage} Artifact와 Grade는 보존했습니다.`,
+          );
+          return;
+        }
+        if (interaction.commandName === "challenge-close") {
+          await interaction.deferReply({ ephemeral: true });
+          const challengeId = interaction.options.getString("challenge_id", true);
+          const result = await closeChallengeFromInteraction(interaction, challengeId);
+          await interaction.editReply(
+            `Challenge를 종료했습니다. ${result.lockedChannelCount}/${result.lockedChannels.length}개의 제출 방을 잠갔습니다. 다음 과제 승인 시 Archive로 이동합니다.`,
           );
           return;
         }

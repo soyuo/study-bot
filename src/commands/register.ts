@@ -78,6 +78,13 @@ export function buildApplicationCommands() {
     .addStringOption((option) =>
       option.setName("challenge_id").setDescription("삭제할 Challenge ID").setRequired(true),
     );
+  const challengeClose = new SlashCommandBuilder()
+    .setName("challenge-close")
+    .setDescription("Challenge를 종료하고 제출을 잠급니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("challenge_id").setDescription("종료할 Challenge ID").setRequired(true),
+    );
   const audit = new SlashCommandBuilder()
     .setName("audit")
     .setDescription("관리자용 감사 로그를 조회합니다.")
@@ -103,6 +110,7 @@ export function buildApplicationCommands() {
     guildConfig.toJSON(),
     submission.toJSON(),
     challengeDelete.toJSON(),
+    challengeClose.toJSON(),
     audit.toJSON(),
     submissionDelete.toJSON(),
     health.toJSON(),
