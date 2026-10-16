@@ -17,6 +17,7 @@ import { logger } from "../logger.js";
 import { getHealthEmbed } from "../services/health.service.js";
 import { updateChallengeDeadlineFromInteraction } from "../services/deadline-command.service.js";
 import { formatDiscordTimestamp } from "../utils/deadline.js";
+import { getDeadlineChallengeAutocompleteChoices } from "../services/deadline-command.service.js";
 
 export function resolveInteractionRoute(input: {
   kind: "chat" | "button" | "other";
@@ -36,6 +37,14 @@ export function resolveInteractionRoute(input: {
 export function registerInteractionHandler(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
+      if (interaction.isAutocomplete()) {
+        if (interaction.commandName !== "deadline" || !interaction.guild) return;
+        const focused = interaction.options.getFocused(true);
+        if (focused.name !== "challenge_id") return;
+        const choices = await getDeadlineChallengeAutocompleteChoices(interaction.guild.id, focused.value);
+        await interaction.respond(choices);
+        return;
+      }
       const route = resolveInteractionRoute({
         kind: interaction.isChatInputCommand() ? "chat" : interaction.isButton() ? "button" : "other",
         ...(interaction.isChatInputCommand() ? { commandName: interaction.commandName } : {}),

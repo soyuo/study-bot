@@ -30,7 +30,11 @@ export function buildApplicationCommands() {
     .setDescription("Challenge 마감일을 상대 시간 또는 날짜로 설정합니다.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption((option) =>
-      option.setName("challenge_id").setDescription("마감일을 설정할 Challenge ID").setRequired(true),
+      option
+        .setName("challenge_id")
+        .setDescription("마감일을 설정할 Challenge ID")
+        .setRequired(true)
+        .setAutocomplete(true),
     )
     .addIntegerOption((option) =>
       option.setName("hours").setDescription("현재 시각부터 몇 시간 후인지 입력합니다.").setMinValue(1).setMaxValue(24 * 365),

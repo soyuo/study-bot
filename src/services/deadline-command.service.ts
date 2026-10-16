@@ -8,6 +8,7 @@ import {
 import { config } from "../config.js";
 import {
   findChallengeForApproval,
+  findDeadlineChallengeSuggestions,
   updateChallengeDeadline,
 } from "../repositories/challenge.repository.js";
 import { buildChallengePreviewEmbed, buildChallengePublicComponents, buildChallengePublicEmbed } from "./challenge.service.js";
@@ -98,4 +99,12 @@ export async function updateChallengeDeadlineFromInteraction(
   }
 
   return deadline;
+}
+
+export async function getDeadlineChallengeAutocompleteChoices(guildId: string, query: string) {
+  const challenges = await findDeadlineChallengeSuggestions({ guildId, query });
+  return challenges.map((challenge) => ({
+    name: `[${challenge.status === "DRAFT" ? "초안" : "공개"}] ${challenge.title}`.slice(0, 100),
+    value: challenge.id,
+  }));
 }

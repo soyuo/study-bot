@@ -84,10 +84,11 @@ test("config and submission commands preserve required option contracts", () => 
   assert.equal(regradeOptions[0]?.name, "submission_id");
   assert.equal(regradeOptions[0]?.required, true);
 
-  const deadlineOptions = deadline.options as Array<{ name: string; required?: boolean }>;
+  const deadlineOptions = deadline.options as Array<{ name: string; required?: boolean; autocomplete?: boolean }>;
   assert.deepEqual(deadlineOptions.map((option) => [option.name, option.required]), [
     ["challenge_id", true],
     ["hours", false],
     ["date", false],
   ]);
+  assert.equal(deadlineOptions[0]?.autocomplete, true);
 });

@@ -144,6 +144,28 @@ export async function findChallengeForApproval(challengeId: string) {
   });
 }
 
+export async function findDeadlineChallengeSuggestions(input: { guildId: string; query: string }) {
+  const query = input.query.trim();
+  return prisma.challenge.findMany({
+    where: {
+      guildConfig: { guildId: input.guildId },
+      status: { in: ["DRAFT", "ACTIVE"] },
+      deletedAt: null,
+      ...(query
+        ? {
+            OR: [
+              { id: { contains: query } },
+              { title: { contains: query, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    select: { id: true, title: true, status: true, deadline: true },
+    orderBy: { updatedAt: "desc" },
+    take: 25,
+  });
+}
+
 export async function approveChallenge(input: {
   challengeId: string;
   approverId: string;
