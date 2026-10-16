@@ -61,7 +61,7 @@ export const challengeRegistrationInputSchema = z
     authorId: nonEmptyString,
     sourceChannelId: nonEmptyString,
     sourceMessageId: nonEmptyString,
-    sourceContent: z.string().max(50_000),
+    sourceContent: z.string().max(10 * 1024 * 1024),
     sourceAttachments: z
       .array(
         z.object({

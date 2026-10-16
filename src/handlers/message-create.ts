@@ -7,6 +7,7 @@ import {
   buildChallengePreviewEmbed,
   createChallengeDraftFromParser,
 } from "../services/challenge.service.js";
+import { readMessageTextAttachment } from "../services/challenge-attachment.service.js";
 import { findGuildConfigByGuildId, setChallengePreviewMessage } from "../repositories/challenge.repository.js";
 
 function isChallengeAdmin(message: Message, adminRoleId: string | null | undefined): boolean {
@@ -40,12 +41,22 @@ export function registerMessageHandler(client: Client): void {
         return;
       }
 
+      const messageTextAttachment = message.attachments.find(
+        (attachment) => attachment.name?.toLowerCase() === "message.txt",
+      );
+      const attachedChallengeContent = messageTextAttachment
+        ? await readMessageTextAttachment(messageTextAttachment)
+        : null;
+      const sourceContent = [message.content.trim(), attachedChallengeContent?.trim()]
+        .filter((content): content is string => Boolean(content))
+        .join("\n\n");
+
       const registration = {
         guildId: message.guild.id,
         authorId: message.author.id,
         sourceChannelId: message.channelId,
         sourceMessageId: message.id,
-        sourceContent: message.content,
+        sourceContent,
         sourceAttachments: message.attachments.map((attachment) => ({
           url: attachment.url,
           ...(attachment.name ? { filename: attachment.name } : {}),
