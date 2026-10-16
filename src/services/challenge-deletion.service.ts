@@ -50,6 +50,27 @@ async function writeChallengeDeletionLog(
   }
 }
 
+async function deleteSubmissionChannels(
+  interaction: ChatInputCommandInteraction,
+  channelIds: string[],
+  challengeId: string,
+): Promise<{ deleted: number; failed: number }> {
+  let deleted = 0;
+  let failed = 0;
+
+  for (const channelId of new Set(channelIds)) {
+    try {
+      await interaction.guild!.channels.delete(channelId, `Challenge ${challengeId} deleted`);
+      deleted += 1;
+    } catch (error) {
+      failed += 1;
+      logger.warn({ err: error, challengeId, channelId }, "Deleted challenge submission channel could not be removed");
+    }
+  }
+
+  return { deleted, failed };
+}
+
 export async function deleteChallengeFromInteraction(
   interaction: ChatInputCommandInteraction,
   challengeId: string,
@@ -66,6 +87,7 @@ export async function deleteChallengeFromInteraction(
   if (!isAdmin && !hasRole) throw new Error("Only administrators can delete challenges");
 
   const deleted = await deleteChallengeWithSubmissions({ challengeId, actorId: interaction.user.id });
+  const channelDeletion = await deleteSubmissionChannels(interaction, deleted.submissionChannelIds, challenge.id);
   if (challenge.publicChannelId && challenge.publicMessageId) {
     try {
       const publicChannel = await interaction.guild.channels.fetch(challenge.publicChannelId);
@@ -87,5 +109,9 @@ export async function deleteChallengeFromInteraction(
     }
   }
   await writeChallengeDeletionLog(interaction, challenge);
-  return deleted;
+  return {
+    ...deleted,
+    deletedSubmissionChannelCount: channelDeletion.deleted,
+    failedSubmissionChannelCount: channelDeletion.failed,
+  };
 }

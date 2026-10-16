@@ -473,7 +473,7 @@ export async function deleteChallengeWithSubmissions(input: { challengeId: strin
     const deletedAt = new Date();
     const submissions = await tx.submission.findMany({
       where: { challengeId: challenge.id, deletedAt: null },
-      select: { id: true },
+      select: { id: true, channelId: true },
     });
     await tx.submission.updateMany({
       where: { challengeId: challenge.id, deletedAt: null },
@@ -497,7 +497,13 @@ export async function deleteChallengeWithSubmissions(input: { challengeId: strin
         },
       },
     });
-    return { ...challenge, status: "DELETED" as const, deletedAt, deletedSubmissionCount: submissions.length };
+    return {
+      ...challenge,
+      status: "DELETED" as const,
+      deletedAt,
+      deletedSubmissionCount: submissions.length,
+      submissionChannelIds: submissions.flatMap((submission) => (submission.channelId ? [submission.channelId] : [])),
+    };
   });
 }
 

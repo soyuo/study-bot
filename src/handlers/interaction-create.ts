@@ -78,8 +78,11 @@ export function registerInteractionHandler(client: Client): void {
           await interaction.deferReply({ ephemeral: true });
           const challengeId = interaction.options.getString("challenge_id", true);
           const result = await deleteChallengeFromInteraction(interaction, challengeId);
+          const channelMessage = result.failedSubmissionChannelCount > 0
+            ? `제출 방 ${result.deletedSubmissionChannelCount}개를 삭제했고 ${result.failedSubmissionChannelCount}개는 삭제하지 못했습니다.`
+            : `제출 방 ${result.deletedSubmissionChannelCount}개도 삭제했습니다.`;
           await interaction.editReply(
-            `Challenge가 삭제 처리되었습니다. ${result.deletedSubmissionCount}개의 Submission을 삭제했고 Artifact와 Grade는 보존했습니다.`,
+            `Challenge가 삭제 처리되었습니다. ${result.deletedSubmissionCount}개의 Submission을 삭제했고 ${channelMessage} Artifact와 Grade는 보존했습니다.`,
           );
           return;
         }

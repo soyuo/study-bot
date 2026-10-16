@@ -157,6 +157,7 @@ if (!testDatabaseUrl) {
 
     assert.equal(deleted.status, "DELETED");
     assert.equal(deleted.deletedSubmissionCount, 1);
+    assert.deepEqual(deleted.submissionChannelIds, ["submission-channel"]);
     assert.equal(storedChallenge?.status, "DELETED");
     assert.ok(storedChallenge?.deletedAt);
     assert.equal(storedSubmission?.status, "DELETED");
