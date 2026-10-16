@@ -112,6 +112,10 @@ export function buildChallengePublicComponents(challenge: ChallengeEmbedData, no
         .setLabel("과제 제출")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(isDeadlinePassed(challenge.deadline, now)),
+      new ButtonBuilder()
+        .setCustomId(customIds.hint(challenge.id))
+        .setLabel("힌트")
+        .setStyle(ButtonStyle.Secondary),
     ),
   ];
 }

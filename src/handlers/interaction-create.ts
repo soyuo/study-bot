@@ -18,6 +18,7 @@ import { getHealthEmbed } from "../services/health.service.js";
 import { updateChallengeDeadlineFromInteraction } from "../services/deadline-command.service.js";
 import { formatDiscordTimestamp } from "../utils/deadline.js";
 import { getDeadlineChallengeAutocompleteChoices } from "../services/deadline-command.service.js";
+import { getChallengeHintForInteraction } from "../services/challenge-hint.service.js";
 
 export function resolveInteractionRoute(input: {
   kind: "chat" | "button" | "other";
@@ -120,6 +121,13 @@ export function registerInteractionHandler(client: Client): void {
       }
       if (!interaction.isButton() || route.kind !== "button") return;
       const parsed = route;
+
+      if (parsed.action === "challenge:hint") {
+        await interaction.deferReply({ ephemeral: true });
+        const embed = await getChallengeHintForInteraction(interaction, parsed.resourceId);
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
 
       if (parsed.action === "challenge:submit") {
         await interaction.deferReply({ ephemeral: true });

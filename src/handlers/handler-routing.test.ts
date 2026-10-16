@@ -54,6 +54,11 @@ test("interaction routing resolves slash commands and custom button IDs", () => 
     action: "challenge:approve",
     resourceId: "challenge-1",
   });
+  assert.deepEqual(resolveInteractionRoute({ kind: "button", customId: "challenge:hint:challenge-1" }), {
+    kind: "button",
+    action: "challenge:hint",
+    resourceId: "challenge-1",
+  });
   assert.equal(resolveInteractionRoute({ kind: "button", customId: "not-a-custom-id" }), null);
   assert.equal(resolveInteractionRoute({ kind: "other" }), null);
 });
