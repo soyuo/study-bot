@@ -12,6 +12,8 @@ import { updateGuildConfiguration } from "../services/configuration.service.js";
 import { getSubmissionQueryEmbed } from "../services/submission-query.service.js";
 import { deleteChallengeFromInteraction } from "../services/challenge-deletion.service.js";
 import { closeChallengeFromInteraction } from "../services/challenge-close.service.js";
+import { archiveChallengeFromInteraction } from "../services/challenge-archive.service.js";
+import { reopenSubmissionFromInteraction } from "../services/submission-reopen.service.js";
 import { getAuditLogEmbed } from "../services/audit-query.service.js";
 import { deleteSubmissionFromInteraction } from "../services/submission-deletion.service.js";
 import { logger } from "../logger.js";
@@ -94,6 +96,20 @@ export function registerInteractionHandler(client: Client): void {
           await interaction.editReply(
             `Challenge를 종료했습니다. ${result.lockedChannelCount}/${result.lockedChannels.length}개의 제출 방을 잠갔습니다. 다음 과제 승인 시 Archive로 이동합니다.`,
           );
+          return;
+        }
+        if (interaction.commandName === "challenge-archive") {
+          await interaction.deferReply({ ephemeral: true });
+          const challengeId = interaction.options.getString("challenge_id", true);
+          const result = await archiveChallengeFromInteraction(interaction, challengeId);
+          await interaction.editReply(`Challenge Archive 처리: ${result.completed}/${result.total}건 완료되었습니다.${result.failed ? ` ${result.failed}건은 실패했습니다.` : ""}`);
+          return;
+        }
+        if (interaction.commandName === "submission-reopen") {
+          await interaction.deferReply({ ephemeral: true });
+          const submissionId = interaction.options.getString("submission_id", true);
+          const result = await reopenSubmissionFromInteraction(interaction, submissionId);
+          await interaction.editReply(`제출 방을 다시 열었습니다: <#${result.channelId}>`);
           return;
         }
         if (interaction.commandName === "submission") {

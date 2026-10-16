@@ -33,8 +33,10 @@ test("registers all application commands through the configured REST route", asy
       "submission",
       "challenge-delete",
       "challenge-close",
+      "challenge-archive",
       "audit",
       "submission-delete",
+      "submission-reopen",
       "health",
     ],
   );

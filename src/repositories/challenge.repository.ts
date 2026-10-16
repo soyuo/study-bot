@@ -422,6 +422,14 @@ export async function findPendingArchiveRecords(input: {
   });
 }
 
+export async function findArchiveRecordsForChallenge(challengeId: string) {
+  return prisma.archiveRecord.findMany({
+    where: { challengeId, status: { in: ["PENDING", "FAILED"] } },
+    include: { submission: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 export async function setGuildArchiveCategory(input: { guildId: string; archiveCategoryId: string }) {
   return prisma.guildConfig.upsert({
     where: { guildId: input.guildId },
@@ -797,6 +805,35 @@ export async function lockSubmission(submissionId: string, submittedAt = new Dat
 
   if (result.count !== 1) throw new Error("Submission is already completed or unavailable");
   return prisma.submission.findUniqueOrThrow({ where: { id: submissionId } });
+}
+
+export async function reopenSubmission(input: { submissionId: string; actorId: string }) {
+  return prisma.$transaction(async (tx) => {
+    const submission = await tx.submission.findUnique({
+      where: { id: input.submissionId },
+      include: { challenge: true },
+    });
+    if (!submission || submission.deletedAt) throw new Error("Submission not found");
+    if (submission.challenge.status !== "ACTIVE") throw new Error("Only submissions for an active Challenge can be reopened");
+    const updated = await tx.submission.updateMany({
+      where: { id: submission.id, status: "LOCKED", deletedAt: null },
+      data: { status: "OPEN", lockedAt: null },
+    });
+    if (updated.count !== 1) throw new Error("Only a locked Submission can be reopened");
+    await tx.auditLog.create({
+      data: {
+        guildConfigId: submission.challenge.guildConfigId,
+        actorId: input.actorId,
+        action: "SUBMISSION_REOPENED",
+        entityType: "Submission",
+        entityId: submission.id,
+        challengeId: submission.challengeId,
+        submissionId: submission.id,
+        metadata: { previousStatus: "LOCKED" },
+      },
+    });
+    return tx.submission.findUniqueOrThrow({ where: { id: submission.id } });
+  });
 }
 
 export async function createSubmissionSnapshot(input: {

@@ -85,6 +85,13 @@ export function buildApplicationCommands() {
     .addStringOption((option) =>
       option.setName("challenge_id").setDescription("종료할 Challenge ID").setRequired(true),
     );
+  const challengeArchive = new SlashCommandBuilder()
+    .setName("challenge-archive")
+    .setDescription("종료된 Challenge를 수동으로 Archive 처리합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("challenge_id").setDescription("아카이브할 Challenge ID").setRequired(true),
+    );
   const audit = new SlashCommandBuilder()
     .setName("audit")
     .setDescription("관리자용 감사 로그를 조회합니다.")
@@ -99,6 +106,13 @@ export function buildApplicationCommands() {
     .addStringOption((option) =>
       option.setName("submission_id").setDescription("삭제할 Submission ID").setRequired(true),
     );
+  const submissionReopen = new SlashCommandBuilder()
+    .setName("submission-reopen")
+    .setDescription("잠긴 제출 방을 다시 엽니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("submission_id").setDescription("다시 열 Submission ID").setRequired(true),
+    );
   const health = new SlashCommandBuilder()
     .setName("health")
     .setDescription("봇과 데이터베이스의 운영 상태를 확인합니다.")
@@ -111,8 +125,10 @@ export function buildApplicationCommands() {
     submission.toJSON(),
     challengeDelete.toJSON(),
     challengeClose.toJSON(),
+    challengeArchive.toJSON(),
     audit.toJSON(),
     submissionDelete.toJSON(),
+    submissionReopen.toJSON(),
     health.toJSON(),
   ];
 }

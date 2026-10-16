@@ -48,7 +48,7 @@ function truncate(value: string, maxLength: number): string {
   return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
 }
 
-async function archivePreviousPublicMessage(
+export async function archivePreviousPublicMessage(
   guild: Guild,
   challenge: Awaited<ReturnType<typeof findChallengesForPublicArchive>>[number],
   actorId: string,

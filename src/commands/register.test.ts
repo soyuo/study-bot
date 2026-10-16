@@ -18,8 +18,10 @@ test("application commands expose the expected command set", () => {
     "submission",
     "challenge-delete",
     "challenge-close",
+    "challenge-archive",
     "audit",
     "submission-delete",
+    "submission-reopen",
     "health",
   ]);
 });
@@ -33,8 +35,10 @@ test("administrator commands require administrator permissions", () => {
     "config",
     "challenge-delete",
     "challenge-close",
+    "challenge-archive",
     "audit",
     "submission-delete",
+    "submission-reopen",
     "health",
   ]);
 
