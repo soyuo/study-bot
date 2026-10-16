@@ -189,13 +189,28 @@ export function buildChallengeHintEmbed(challenge: ChallengeForHint, hint: HintC
     .setFooter({ text: "힌트는 방향과 시작점만 제공합니다. 직접 완성해 보세요." });
 }
 
-export function buildSubmissionControlContent(title: string, submissionId: string, hintViewed: boolean): string {
+function submissionStatusLabel(status: string): string {
+  if (status === "SUBMITTED") return "제출 확정";
+  if (status === "GRADING") return "채점 중";
+  if (status === "GRADED") return "채점 완료";
+  if (status === "GRADING_FAILED") return "채점 실패";
+  if (status === "LOCKED") return "잠김";
+  return "제출 진행 중";
+}
+
+export function buildSubmissionControlContent(
+  title: string,
+  submissionId: string,
+  hintViewed: boolean,
+  status = "OPEN",
+): string {
   return [
     `**${title}** 제출 공간입니다.`,
     `Submission ID: \`${submissionId}\``,
     "결과물, 설명, README, GitHub 링크 또는 파일을 이 채널에 제출해주세요.",
     "제출이 끝나면 아래 버튼을 눌러주세요. 제출 후에는 수정할 수 없습니다.",
     `힌트 열람: ${hintViewed ? "완료" : "아직 안 함"}`,
+    `상태: ${submissionStatusLabel(status)}`,
   ].join("\n");
 }
 
@@ -227,7 +242,7 @@ async function updateSubmissionHintStatusMessage(interaction: ButtonInteraction,
     if (!channel?.isTextBased() || !("messages" in channel)) return;
     const message = await channel.messages.fetch(submission.controlMessageId);
     await message.edit({
-      content: buildSubmissionControlContent(challenge.title, submission.id, true),
+      content: buildSubmissionControlContent(challenge.title, submission.id, true, submission.status),
       components: buildSubmissionControlComponents(submission.id, challenge.id, submission.status === "OPEN"),
     });
   } catch (error) {

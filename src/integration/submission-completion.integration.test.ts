@@ -111,7 +111,7 @@ if (!testDatabaseUrl) {
         {
           type: "TEXT",
           source: "message-1",
-          content: "Implementation notes",
+          content: "Implementation\u0000 notes",
           sourceMessageId: "message-1",
         },
         {
@@ -136,6 +136,7 @@ if (!testDatabaseUrl) {
     assert.equal(snapshot.messageCount, 3);
     assert.equal(snapshot.capturedAt.getTime(), submittedAt.getTime());
     assert.equal(snapshot.artifacts.length, 2);
+    assert.equal(snapshot.artifacts[0]?.content, "Implementation notes");
     assert.equal(snapshot.artifacts[1]?.filename, "result.zip");
     assert.equal(snapshot.artifacts[1]?.sizeBytes, 1024);
     assert.equal(stored?.status, "SUBMITTED");

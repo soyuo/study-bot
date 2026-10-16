@@ -853,6 +853,9 @@ export async function createSubmissionSnapshot(input: {
     storageKey?: string;
   }>;
 }) {
+  const cleanText = (value: string) => value.replaceAll("\u0000", "");
+  const cleanOptionalText = (value: string | undefined) => value?.replaceAll("\u0000", "");
+
   return prisma.submissionSnapshot.create({
     data: {
       submissionId: input.submissionId,
@@ -863,14 +866,14 @@ export async function createSubmissionSnapshot(input: {
         create: input.artifacts.map((artifact) => ({
           submissionId: input.submissionId,
           type: artifact.type,
-          source: artifact.source,
-          content: artifact.content,
-          sourceMessageId: artifact.sourceMessageId,
-          filename: artifact.filename,
-          mimeType: artifact.mimeType,
+          source: cleanText(artifact.source),
+          content: cleanOptionalText(artifact.content),
+          sourceMessageId: cleanOptionalText(artifact.sourceMessageId),
+          filename: cleanOptionalText(artifact.filename),
+          mimeType: cleanOptionalText(artifact.mimeType),
           sizeBytes: artifact.sizeBytes,
-          commitSha: artifact.commitSha,
-          storageKey: artifact.storageKey,
+          commitSha: cleanOptionalText(artifact.commitSha),
+          storageKey: cleanOptionalText(artifact.storageKey),
         })),
       },
     },

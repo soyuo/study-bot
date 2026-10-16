@@ -16,6 +16,7 @@ import {
 import { resolveGitHubSnapshot } from "./github.service.js";
 import { persistDiscordAttachment } from "./artifact-storage.service.js";
 import { config } from "../config.js";
+import { buildSubmissionControlContent } from "./challenge-hint.service.js";
 
 const urlPattern = /https?:\/\/[^\s<>]+/g;
 const githubPattern = /^https?:\/\/github\.com\//i;
@@ -198,7 +199,7 @@ export async function completeSubmission(interaction: ButtonInteraction, submiss
   });
 
   await interaction.message.edit({
-    content: "제출이 확정되었습니다. 제출물은 수정할 수 없습니다.",
+    content: buildSubmissionControlContent(submission.challenge.title, submission.id, true, "SUBMITTED"),
     components: [],
   });
 
