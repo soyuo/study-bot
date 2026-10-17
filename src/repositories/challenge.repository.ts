@@ -1206,9 +1206,30 @@ export async function findGradeForResult(gradeId: string) {
   return prisma.grade.findUnique({
     where: { id: gradeId },
     include: {
-      submission: { include: { challenge: true } },
+      submission: { include: { challenge: { include: { guildConfig: true } } } },
       results: { include: { criterion: true }, orderBy: { criterion: { code: "asc" } } },
     },
+  });
+}
+
+export async function findGradeResultPublication(gradeId: string) {
+  return prisma.auditLog.findFirst({
+    where: { action: "GRADE_RESULT_PUBLISHED", entityType: "Grade", entityId: gradeId },
+    select: { id: true },
+  });
+}
+
+export async function findGradesForGuildUser(input: { guildConfigId: string; userId: string }) {
+  return prisma.grade.findMany({
+    where: {
+      deletedAt: null,
+      submission: {
+        userId: input.userId,
+        challenge: { guildConfigId: input.guildConfigId },
+      },
+    },
+    include: { submission: { include: { challenge: true } } },
+    orderBy: [{ submissionId: "asc" }, { attempt: "desc" }],
   });
 }
 

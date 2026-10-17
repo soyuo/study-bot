@@ -12,6 +12,8 @@ test("application commands expose the expected command set", () => {
 
   assert.deepEqual(names, [
     "regrade",
+    "grade-finalize",
+    "score",
     "archive-retry",
     "deadline",
     "config",
@@ -30,6 +32,8 @@ test("administrator commands require administrator permissions", () => {
   const commands = buildApplicationCommands();
   const administratorCommands = new Set([
     "regrade",
+    "grade-finalize",
+    "score",
     "archive-retry",
     "deadline",
     "config",
@@ -56,9 +60,11 @@ test("config and submission commands preserve required option contracts", () => 
   const config = commands.find((command) => command.name === "config");
   const submission = commands.find((command) => command.name === "submission");
   const regrade = commands.find((command) => command.name === "regrade");
+  const gradeFinalize = commands.find((command) => command.name === "grade-finalize");
+  const score = commands.find((command) => command.name === "score");
   const deadline = commands.find((command) => command.name === "deadline");
 
-  if (!config || !submission || !regrade || !deadline) throw new Error("Expected commands are missing");
+  if (!config || !submission || !regrade || !gradeFinalize || !score || !deadline) throw new Error("Expected commands are missing");
   const configOptions = config.options as Array<{
     name: string;
     type: number;
@@ -89,6 +95,15 @@ test("config and submission commands preserve required option contracts", () => 
   const regradeOptions = regrade.options as Array<{ name: string; required?: boolean }>;
   assert.equal(regradeOptions[0]?.name, "submission_id");
   assert.equal(regradeOptions[0]?.required, true);
+
+  const gradeFinalizeOptions = gradeFinalize.options as Array<{ name: string; required?: boolean }>;
+  assert.deepEqual(
+    gradeFinalizeOptions.map((option) => [option.name, option.required, (option as { type?: number }).type]),
+    [["grade_id", true, 3]],
+  );
+
+  const scoreOptions = score.options as Array<{ name: string; required?: boolean; type: number }>;
+  assert.deepEqual(scoreOptions.map((option) => [option.name, option.type, option.required]), [["target", 6, true]]);
 
   const deadlineOptions = deadline.options as Array<{ name: string; required?: boolean; autocomplete?: boolean }>;
   assert.deepEqual(deadlineOptions.map((option) => [option.name, option.required]), [

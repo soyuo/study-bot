@@ -27,6 +27,8 @@ test("registers all application commands through the configured REST route", asy
     (calls[0]?.body as Array<{ name: string }>).map((command) => command.name),
     [
       "regrade",
+      "grade-finalize",
+      "score",
       "archive-retry",
       "deadline",
       "config",

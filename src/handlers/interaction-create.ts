@@ -22,6 +22,8 @@ import { updateChallengeDeadlineFromInteraction } from "../services/deadline-com
 import { formatDiscordTimestamp } from "../utils/deadline.js";
 import { getDeadlineChallengeAutocompleteChoices } from "../services/deadline-command.service.js";
 import { getChallengeHintForInteraction } from "../services/challenge-hint.service.js";
+import { finalizeGradeFromInteraction } from "../services/grade-finalization.service.js";
+import { getTotalScoreEmbed } from "../services/score-query.service.js";
 
 export function resolveInteractionRoute(input: {
   kind: "chat" | "button" | "other";
@@ -60,6 +62,22 @@ export function registerInteractionHandler(client: Client): void {
         if (interaction.commandName === "health") {
           await interaction.deferReply({ ephemeral: true });
           const embed = await getHealthEmbed(interaction, client);
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
+        if (interaction.commandName === "grade-finalize") {
+          await interaction.deferReply({ ephemeral: true });
+          const gradeId = interaction.options.getString("grade_id", true);
+          const result = await finalizeGradeFromInteraction(interaction, gradeId);
+          await interaction.editReply(
+            `Grade ${result.gradeId}를 확정했습니다. 점수: ${result.totalScore}/${result.maxScore}점, 제출방을 완료 처리했습니다. 폐기된 잔여 작업: ${result.discardedJobCount}개`,
+          );
+          return;
+        }
+        if (interaction.commandName === "score") {
+          await interaction.deferReply({ ephemeral: true });
+          const target = interaction.options.getUser("target", true);
+          const embed = await getTotalScoreEmbed(interaction, target.id);
           await interaction.editReply({ embeds: [embed] });
           return;
         }

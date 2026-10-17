@@ -21,6 +21,20 @@ export function buildApplicationCommands() {
         .setRequired(true),
     );
 
+  const gradeFinalize = new SlashCommandBuilder()
+    .setName("grade-finalize")
+    .setDescription("Grade ID의 점수를 확정하고 제출을 완료 처리합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option.setName("grade_id").setDescription("확정할 Grade ID").setRequired(true),
+    );
+
+  const score = new SlashCommandBuilder()
+    .setName("score")
+    .setDescription("대상 사용자의 확정 총점을 조회합니다.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addUserOption((option) => option.setName("target").setDescription("점수를 조회할 대상").setRequired(true));
+
   const archiveRetry = new SlashCommandBuilder()
     .setName("archive-retry")
     .setDescription("실패한 제출 채널 Archive를 다시 실행합니다.")
@@ -119,6 +133,8 @@ export function buildApplicationCommands() {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
   return [
     command.toJSON(),
+    gradeFinalize.toJSON(),
+    score.toJSON(),
     archiveRetry.toJSON(),
     deadline.toJSON(),
     guildConfig.toJSON(),
