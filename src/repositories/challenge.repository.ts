@@ -292,6 +292,7 @@ export async function approveChallenge(input: {
         status: "ACTIVE",
         id: { not: input.challengeId },
         deletedAt: null,
+        deadline: { lte: activatedAt },
       },
       select: { id: true },
     });

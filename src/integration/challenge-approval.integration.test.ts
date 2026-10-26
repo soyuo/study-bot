@@ -98,6 +98,10 @@ if (!testDatabaseUrl) {
       approverId,
       activatedAt: firstActivatedAt,
     });
+    await prisma.challenge.update({
+      where: { id: first.id },
+      data: { deadline: new Date("2026-10-16T00:00:00.000Z") },
+    });
 
     const submission = await prisma.submission.create({
       data: {
