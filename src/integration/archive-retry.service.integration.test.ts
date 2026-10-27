@@ -112,6 +112,10 @@ if (!testDatabaseUrl) {
         status: "OPEN",
       },
     });
+    await prisma.challenge.update({
+      where: { id: first.id },
+      data: { deadline: new Date("2026-10-19T00:00:00.000Z") },
+    });
     const replacement = await createDraft("Mock Archive Replacement");
     await approveChallenge({ challengeId: replacement.id, approverId });
     const archive = await prisma.archiveRecord.findFirstOrThrow({

@@ -111,8 +111,10 @@ if (!testDatabaseUrl) {
       artifacts: [{ type: "TEXT", source: "message-1", content: "Submitted work" }],
     });
     const queued = await queueSubmissionGrading({ submissionId: submission.id, snapshotId: snapshot.id });
+    const guildConfig = await prisma.guildConfig.findUniqueOrThrow({ where: { guildId } });
+    const now = new Date();
 
-    const firstJob = await claimNextSubmissionGradingJob(new Date("2026-10-18T02:00:00.000Z"));
+    const firstJob = await claimNextSubmissionGradingJob(now, guildConfig.id);
     assert.equal(firstJob?.id, queued.jobId);
     const firstFailure = await failSubmissionGrading({
       jobId: queued.jobId,
@@ -123,7 +125,7 @@ if (!testDatabaseUrl) {
     assert.equal(firstFailure.exhausted, false);
     assert.equal(firstFailure.attempt, 1);
 
-    const secondJob = await claimNextSubmissionGradingJob(new Date(Date.now() + 1_000));
+    const secondJob = await claimNextSubmissionGradingJob(new Date(Date.now() + 1_000), guildConfig.id);
     assert.equal(secondJob?.id, queued.jobId);
     await failSubmissionGrading({
       jobId: queued.jobId,
@@ -132,7 +134,7 @@ if (!testDatabaseUrl) {
       retryDelayMs: 0,
     });
 
-    const thirdJob = await claimNextSubmissionGradingJob(new Date(Date.now() + 1_000));
+    const thirdJob = await claimNextSubmissionGradingJob(new Date(Date.now() + 1_000), guildConfig.id);
     assert.equal(thirdJob?.id, queued.jobId);
     const terminalFailure = await failSubmissionGrading({
       jobId: queued.jobId,
